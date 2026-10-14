@@ -1,0 +1,8 @@
+create or replace TABLE ONTOLOGY_DEMO.GAME_SALES_GEN.GEN_PLATFORM_DATE_OVERRIDES (
+	GAME_ID NUMBER(38,0) NOT NULL,
+	PLATFORM_ID NUMBER(38,0) NOT NULL,
+	AVAILABLE_FROM DATE NOT NULL,
+	NOTE VARCHAR(16777216),
+	primary key (GAME_ID, PLATFORM_ID)
+)COMMENT='Known release dates of later ports / Director''s Cuts where GAME_PLATFORMS has no exclusivity end date.'
+;

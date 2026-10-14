@@ -1,0 +1,30 @@
+# Agent specification for ONTOLOGY_DEMO.ONTOLOGY_AGENTS.GAMING_BASELINE_AGENT
+# Baseline for the with/without-ontology test: text-to-SQL over GAMING_BASELINE_SV only (no Business Ontology).
+# Deploy: python3 yamls/deploy_yamls.py
+models:
+  orchestration: auto
+
+orchestration:
+  budget:
+    seconds: 60
+    tokens: 16000
+
+instructions:
+  response: |
+    You are an analytics assistant for a PlayStation games business.
+    Answer with the number first, then a short explanation of how you got it.
+  orchestration: |
+    Use query_data to answer data questions.
+
+tools:
+  - tool_spec:
+      type: cortex_analyst_text_to_sql
+      name: query_data
+      description: "Query the game catalog and game sales data."
+
+tool_resources:
+  query_data:
+    semantic_view: "ONTOLOGY_DEMO.ONTOLOGY_AGENTS.GAMING_BASELINE_SV"
+    execution_environment:
+      type: "warehouse"
+      warehouse: "COMPUTE_WH"
