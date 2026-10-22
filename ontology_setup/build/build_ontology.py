@@ -76,7 +76,9 @@ TERMS = [
      "Classification of a game by its features. GAME_CATALOG.GENRE_RULES (46 rows, single parent PARENT_GENRE, "
      "RULE_DEFINITION, DISJOINT_WITH) and VW_GENRE_HIERARCHY (depth, path, leaf). Membership is inferred per game "
      "in GAME_GENRE_CLASSIFICATION: a game is in a genre only when MATCH_STATUS = 'FULL'. A parent genre's members "
-     "are the union of its descendants' members. See the Genre Rule term and the curated genre terms."),
+     "are the union of its descendants' members; parent genres have no FULL rows of their own, so for any parent or "
+     "top-level genre use GAME_CATALOG.VW_GAME_GENRE_ROLLUP (logical table GENRE_ROLLUP, column ROLLUP_GENRE), "
+     "not GENRE_CLASSIFICATION.GENRE. See the Genre Roll-up Rule, the Genre Rule term and the curated genre terms."),
     ("Feature Category", D_GEN, "ENTITY", [],
      "A group of concrete feature values used by genre rules. GAME_CATALOG.GENRE_CATEGORY_MAP "
      "(Combat, Exploration, Multiplayer, Choice, Puzzle...)."),
@@ -165,7 +167,8 @@ TERMS = [
      "OR (EXCLUSIVITY_TYPE = 'TIMED' AND EXCLUSIVE_END >= CURRENT_DATE))"),
     ("Game Revenue", D_CAT, "METRIC", ["Title Revenue", "Revenue per Game"],
      "Revenue per catalog Game. Title per row = COALESCE(t.TITLE_ID, p.TITLE_ID); resolve each title to a Game via "
-     "TITLES.CATALOG_GAME_ID, then TITLE_CODE_XREF.CATALOG_GAME_ID, then name + release year (Game Identity Match Rule). "
+     "TITLES.CATALOG_GAME_ID, then TITLE_CODE_XREF.CATALOG_GAME_ID, then name + release year (Game Identity Match Rule; "
+     "compare names with COLLATE(..., 'en-ci-ai'), not LOWER()). "
      "Grain: one row per digital purchase, grouped to a catalog GAME_ID. Gross, additive across games; summed over "
      "all games it equals Digital Gross Revenue. Pitfall: joining on TITLES.CATALOG_GAME_ID alone drops every title "
      "that only the crosswalk or the name + year route can resolve. Find a game by its catalog name or a Sales "
@@ -190,6 +193,15 @@ TERMS = [
      "Share of a genre rule's conditions a game meets. A game is a MEMBER of a genre only when MATCH_STATUS = 'FULL' "
      "PARTIAL is not membership. Grain: one row per game and genre. Not additive.",
      "MET_CONDITIONS / TOTAL_CONDITIONS FROM ONTOLOGY_DEMO.GAME_CATALOG.GAME_GENRE_CLASSIFICATION"),
+    ("Genre Revenue", D_GEN, "METRIC", ["Revenue by Genre", "Revenue per Genre"],
+     "Game Revenue per Genre. Resolve each sale to a catalog Game first (Game Identity Match Rule: all three routes, "
+     "with the name route compared via COLLATE(..., 'en-ci-ai') so accents are ignored), then join the "
+     "game to GENRE_ROLLUP (VW_GAME_GENRE_ROLLUP) on GAME_ID and group by ROLLUP_GENRE, so a parent genre includes "
+     "every descendant genre. Apply the Genre Roll-up Rule (RPG also includes ActionRPG and Soulslike games). Each "
+     "game counts once per genre and its full revenue goes to every genre it belongs to, so genre totals overlap "
+     "and are NOT additive: never sum them to get total revenue. 'Which genre' means top-level genres "
+     "(ROLLUP_DEPTH = 1) unless subgenres are asked for. Gross.",
+     "Game Revenue JOIN VW_GAME_GENRE_ROLLUP USING (GAME_ID) GROUP BY ROLLUP_GENRE"),
     ("Weighted Overlap", D_GEN, "METRIC", ["Game Similarity"],
      "Similarity between two games (GAME_SIMILARITY_SCORES.WEIGHTED_OVERLAP). Cannibalization candidates: same "
      "Publisher and >= 0.3. Not additive.",
@@ -201,8 +213,11 @@ TERMS = [
      "(NULL for some titles) and GAME_SALES.TITLE_CODE_XREF.CATALOG_GAME_ID."),
     ("Game Identity Match Rule", D_CAT, "TERM", ["Title to Game Match"],
      "Policy for resolving a Sales title to a catalog Game, in order: (1) strong: TITLES.CATALOG_GAME_ID; "
-     "(2) medium: TITLE_CODE_XREF.CATALOG_GAME_ID for the title; (3) weak: accent-folded lower-case name equal AND same "
-     "release year (TITLES.RELEASE_DATE is text YYYYMMDD and may be the JP date). Apply all three routes; "
+     "(2) medium: TITLE_CODE_XREF.CATALOG_GAME_ID for the title; (3) weak: same name ignoring case and accents AND same "
+     "release year, exactly: COLLATE(TITLES.TITLE_NAME, 'en-ci-ai') = COLLATE(GAMES.GAME_NAME, 'en-ci-ai') AND "
+     "LEFT(TITLES.RELEASE_DATE, 4) = TO_CHAR(YEAR(GAMES.RELEASE_DATE)) (TITLES.RELEASE_DATE is text YYYYMMDD and may "
+     "be the JP date). LOWER() or TRIM() alone do NOT remove accents, so a plain LOWER(name) comparison misses titles "
+     "spelled without accents in Sales. Apply all three routes; "
      "skipping (2) and (3) leaves titles unmatched and undercounts revenue."),
     ("Sales Title ID", D_COM, "TERM", ["TITLE_ID"],
      "GAME_SALES.TITLES.TITLE_ID (5001-5090), a Sales-only key that does NOT equal GAME_ID. Used in DIGITAL_PRODUCTS, "
@@ -257,6 +272,15 @@ TERMS = [
      "or TIMED with EXCLUSIVE_END >= today."),
     ("POV Code", D_GEN, "TERM", ["Point of View", "Perspective"],
      "GAMES.POV: 1P = first person, 3P = third person."),
+    ("Genre Roll-up Rule", D_GEN, "TERM", ["Genre Hierarchy Rule", "Parent Genre Rule"],
+     "How to count or sum a genre including its subgenres. GAME_CATALOG.VW_GAME_GENRE_ROLLUP (logical table "
+     "GENRE_ROLLUP) has one row per game per genre it belongs to: each FULL-matched genre plus all its ancestors in "
+     "the PARENT_GENRE tree; ROLLUP_DEPTH 1 = top-level genre. (1) For a parent or top-level genre use "
+     "GENRE_ROLLUP.ROLLUP_GENRE, never GENRE_CLASSIFICATION.GENRE (parents have no FULL rows of their own). "
+     "(2) The tree is single-parent, so RPG members must be added by hand: RPG = games with ROLLUP_GENRE IN "
+     "('RPG', 'ActionRPG', 'Soulslike', 'Roguelike'), counted with COUNT(DISTINCT GAME_ID). (3) A game counts once "
+     "per genre and belongs to several genres, so per-genre counts and revenue overlap and are not additive. "
+     "(4) 'Which genre' ranks top-level genres (ROLLUP_DEPTH = 1, plus RPG per rule 2) unless subgenres are asked for."),
     ("Genre Match Status", D_GEN, "TERM", [],
      "GAME_GENRE_CLASSIFICATION.MATCH_STATUS: FULL = member; PARTIAL, NONE, UNEVALUABLE = not a member."),
     ("Genre Rule", D_GEN, "TERM", ["Genre Definition"],
@@ -272,13 +296,15 @@ TERMS = [
 
 # ---------------- Phase 4c: curated genre terms (D7)
 MEMBERSHIP = ("Membership: FULL match in GAME_GENRE_CLASSIFICATION; a parent's members are the union of its "
-              "descendants (VW_GENRE_HIERARCHY). Source value GENRE_RULES.GENRE = '{v}'.")
+              "descendants, queryable as GENRE_ROLLUP.ROLLUP_GENRE = '{v}' (VW_GAME_GENRE_ROLLUP; see Genre Roll-up "
+              "Rule). Source value GENRE_RULES.GENRE = '{v}'.")
 GENRES = [
     ("Action", ["action games"], "Top-level. Members = union of Shooter, Fighting, Platformer, Stealth, Survival, "
      "ActionRPG, DynamicAdventure and their subgenres."),
     ("Adventure", ["adventure games"], "Top-level. Includes Explorative, InteractiveMovie, Metroidvania, VisualNovel."),
     ("RPG", ["role-playing game", "roleplaying game"], "Top-level. Members = RPG + Roguelike + ActionRPG + Soulslike. "
-     "ActionRPG and Soulslike sit under Action in GENRE_RULES; always include them. Count distinct games."),
+     "ActionRPG and Soulslike sit under Action in GENRE_RULES, so ROLLUP_GENRE = 'RPG' alone misses them; always "
+     "use ROLLUP_GENRE IN ('RPG', 'Roguelike', 'ActionRPG', 'Soulslike'). Count distinct games."),
     ("Horror", ["horror games"], "Top-level. Includes Gore, Psychological, SurvivalHorror. Disjoint with Cozy."),
     ("Simulator", ["sim", "simulation game"], "Top-level. Includes DatingSim, DrivingSim, JobSim, Management, SandBox, "
      "Sport. Most sim rules are unmet by the data."),
@@ -359,6 +385,10 @@ r("Active Customer Count", "MEASURES", "Customer")
 r("Active Catalog Game Count", "MEASURES", "Game")
 r("Battle Pass Sales Revenue", "MEASURES", "Digital Product")
 r("Genre Match Score", "MEASURES", "Genre")
+r("Game Revenue", "DERIVES", "Genre Revenue")
+r("Genre Revenue", "MEASURES", "Genre")
+r("Genre Roll-up Rule", "APPLIES_TO", "Genre", "Genre Revenue")
+r("Game Identity Match Rule", "APPLIES_TO", "Genre Revenue")
 r("Weighted Overlap", "MEASURES", "Game")
 r("Account Status", "APPLIES_TO", "Active Customer Count")
 r("Game Lifecycle Status", "APPLIES_TO", "Active Catalog Game Count")
@@ -384,7 +414,8 @@ REP = [
     ("Franchise", T(f"{CAT}.GAME_FRANCHISES")), ("Franchise", C(f"{CAT}.GAMES", "FRANCHISE_NAME")),
     ("Engine", T(f"{CAT}.ENGINES")), ("Game Mode", T(f"{CAT}.GAME_MODES")), ("Age Rating", T(f"{CAT}.AGE_RATINGS")),
     ("Genre", T(f"{CAT}.GENRE_RULES")), ("Genre", V(f"{CAT}.VW_GENRE_HIERARCHY")),
-    ("Genre", T(f"{CAT}.GAME_GENRE_CLASSIFICATION")),
+    ("Genre", T(f"{CAT}.GAME_GENRE_CLASSIFICATION")), ("Genre", V(f"{CAT}.VW_GAME_GENRE_ROLLUP")),
+    ("Genre Roll-up Rule", C(f"{CAT}.VW_GAME_GENRE_ROLLUP", "ROLLUP_GENRE")),
     ("Feature Category", T(f"{CAT}.GENRE_CATEGORY_MAP")), ("Gameplay Type", T(f"{CAT}.GAMEPLAY_TYPES")),
     ("Mechanic", T(f"{CAT}.MECHANICS")), ("Context", T(f"{CAT}.CONTEXTS")),
     ("Narrative Structure", T(f"{CAT}.NARRATIVE_STRUCTURES")),
@@ -437,13 +468,28 @@ METRIC_REP = [
     ("Active Catalog Game Count", C(f"{CAT}.GAMES", "STATUS")),
     ("Genre Match Score", C(f"{CAT}.GAME_GENRE_CLASSIFICATION", "MATCH_STATUS")),
     ("Weighted Overlap", C(f"{CAT}.GAME_SIMILARITY_SCORES", "WEIGHTED_OVERLAP")),
+    ("Genre Revenue", C(DPT, "GROSS_REVENUE")),
+    ("Genre Revenue", C(f"{CAT}.VW_GAME_GENRE_ROLLUP", "ROLLUP_GENRE")),
 ]
+
+# Incremental genre roll-up change (06_genre_rollup.sql): new nodes, changed descriptions, new edges/representations.
+ROLLUP_NEW_TERMS = ["Genre Roll-up Rule", "Genre Revenue"]
+ROLLUP_CHANGED_TERMS = ["Genre"] + [g for g, _, _ in GENRES]
+ROLLUP_NEW_REL = [("Game Revenue", "Genre Revenue", "DERIVES"), ("Genre Revenue", "Genre", "MEASURES"),
+                  ("Genre Roll-up Rule", "Genre", "APPLIES_TO"), ("Genre Roll-up Rule", "Genre Revenue", "APPLIES_TO"),
+                  ("Game Identity Match Rule", "Genre Revenue", "APPLIES_TO")]
+ROLLUP_NEW_REP = [("Genre", V(f"{CAT}.VW_GAME_GENRE_ROLLUP")),
+                  ("Genre Roll-up Rule", C(f"{CAT}.VW_GAME_GENRE_ROLLUP", "ROLLUP_GENRE")),
+                  ("Genre Revenue", C(DPT, "GROSS_REVENUE")),
+                  ("Genre Revenue", C(f"{CAT}.VW_GAME_GENRE_ROLLUP", "ROLLUP_GENRE"))]
 
 # D17: no eval answers or trap values in ontology text. Values from ontology_eval_set.md.
 FORBIDDEN = [
     "19,231,852", "17,312,180", "15,861,443", "899,999", "198,000", "3,419,553", "2,919,819", "3,428,553",
     "96,773", "289,225", "38,699", "70,243,201", "150,389", "19,119,344", "211,407,934", "230,527,279",
     "203,000", "175,660,810", "35,634,616", "112,507", "7,881,147", "1,612,478", "CUSA86252",
+    "14,642,492", "13,436,693", "13,217,013", "12,278,693", "6,080,639", "3,938,359", "3,892,173", "2,008,400",
+    "12,662,253", "7,836,560", "5,271,160", "990,310", "184,988", "30,641,565",
 ]
 FORBIDDEN_WORDS = ["Correct:", "Wrong ("]
 FORBIDDEN_COUNTS = [" 43 ", " 10 games", " 53", " 89 ", " 87 ", " 351", " games:", " 0 games"]
@@ -512,6 +558,26 @@ def main():
     mrep += [f"SELECT SYSTEM$CREATE_GLOSSARY_ASSOCIATION({lit(term)}, {lit(json.dumps(ref))}, 'DESCRIBES');"
              for term, ref in METRIC_REP]
     (OUT / "05_metric_representations.sql").write_text("\n".join(mrep) + "\n")
+
+    by_name = {t[0]: t for t in TERMS}
+    assert all(x in REL for x in ROLLUP_NEW_REL), "ROLLUP_NEW_REL out of sync with REL"
+    assert all(x in REP + METRIC_REP for x in ROLLUP_NEW_REP), "ROLLUP_NEW_REP out of sync with REP"
+    roll = ["-- Generated by build_ontology.py. Genre roll-up: new nodes, description edits, edges, representations."]
+    for name in ROLLUP_NEW_TERMS:
+        name, domain, kind, synonyms, desc = by_name[name][:5]
+        payload = {"name": name, "domainName": domain, "itemKind": kind, "description": desc, "synonyms": synonyms}
+        if kind == "METRIC":
+            payload["formula"] = by_name[name][5]
+        roll.append(f"SELECT SYSTEM$DRAFT_GLOSSARY_TERM({lit(json.dumps(payload, ensure_ascii=False))});")
+        roll.append(f"SELECT SYSTEM$APPROVE_GLOSSARY_TERM({lit(name)});")
+    for name in ROLLUP_CHANGED_TERMS:
+        patch = {"description": by_name[name][4]}
+        # Edit cards (DRAFT_GLOSSARY_TERM_UPDATE) are unsupported in this account; user chose live UPDATE (2026-10-14).
+        roll.append(f"SELECT SYSTEM$UPDATE_GLOSSARY_TERM({lit(name)}, {lit(json.dumps(patch, ensure_ascii=False))});")
+    roll += [f"SELECT SYSTEM$CREATE_GLOSSARY_RELATIONSHIP({lit(s)}, {lit(t)}, {lit(typ)});" for s, t, typ in ROLLUP_NEW_REL]
+    roll += [f"SELECT SYSTEM$CREATE_GLOSSARY_ASSOCIATION({lit(term)}, {lit(json.dumps(ref))}, 'DESCRIBES');"
+             for term, ref in ROLLUP_NEW_REP]
+    (OUT / "06_genre_rollup.sql").write_text("\n".join(roll) + "\n")
 
     kinds = {k: sum(1 for t in TERMS if t[2] == k) for k in ("ENTITY", "METRIC", "TERM")}
     print(f"domains={len(DOMAINS)} terms={len(TERMS)} {kinds} relationships={len(REL)} representations={len(REP) + len(METRIC_REP)}")

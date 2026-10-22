@@ -1,6 +1,6 @@
 # Evaluation set: with vs without Business Ontology
 
-Twenty questions for testing an agent on the messy `ONTOLOGY_DEMO` systems, **with** and **without** the Business Ontology defined in [business_ontology_phases.md](business_ontology_phases.md).
+Twenty-three questions for testing an agent on the messy `ONTOLOGY_DEMO` systems, **with** and **without** the Business Ontology defined in [business_ontology_phases.md](business_ontology_phases.md).
 
 - **Vocabulary:** questions use **canonical business vocabulary only** (Game, Developer, Customer, North America...). They never use local names such as `TITLES`, `STUDIO`, `PLAYER_ID` or `SIEA`. Needing the local vocabulary is exactly what the ontology should remove (decision D1).
 - **Answers:** every expected answer was computed on 2026-10-13 against the current messy data, using the reference SQL at the end.
@@ -44,8 +44,13 @@ Twenty questions for testing an agent on the messy `ONTOLOGY_DEMO` systems, **wi
 | 18 | How many games have digital sales? | grain (D11) | **87** games | Counts products/SKUs → 351 | Game grain warning; Digital Product |
 | 19 | What game and product type is SKU CUSA86252-C1101? | C4/5 crosswalk (D11) | **MLB The Show 17, LOOT_BOX** (a PS4 store code; the game has no `CATALOG_GAME_ID` in Sales) | Cannot read the SKU format; strong key returns no game | SKU Code; Title Code; Game Identity Match Rule |
 | 20 | Which business concepts break if the store title-code crosswalk is removed? | governance (D15) | **Game, Title Code, SKU Code, Game Revenue** | Cannot answer without representations | Phase 7 representations on `TITLE_CODE_XREF` |
+| 21 | Which genre has the most revenue? | genre roll-up + identity | **Action, $14,642,492.04** (66 games). Ranking: Action $14,642,492.04; RPG $13,436,693.28; Horror $6,080,639.52; MultiplayerAvailable $3,938,359.98; Adventure $3,892,173.76; Strategic $2,008,400.00; Simulator $49,000.00; Other $30,500.00 | (a) Groups by the classified genre only, so parents never appear → ActionRPG $13,436,693.28 (or $12,278,693.28 with the strong key only). (b) Uses the roll-up but only the strong title key → Action $13,217,013.28, and RPG missing | Genre Roll-up Rule; Genre Revenue; Game Identity Match Rule |
+| 22 | How much revenue did RPG games make? | genre roll-up (D9) + identity | **$13,436,693.28** (43 games) | Strict tree: `ROLLUP_GENRE = 'RPG'` has no games → $0. Strong title key only → $12,278,693.28 | RPG term; Genre Roll-up Rule; Game Identity Match Rule |
+| 23 | What is revenue for each Action subgenre? | genre hierarchy | **ActionRPG $13,436,693.28; DynamicAdventure $12,662,253.28; Shooter $7,836,560.00; Stealth $5,271,160.00; Platformer $990,310.00; Survival $184,988.76; Fighting $65,000.00** (direct children of Action, each including its own subgenres) | Lists only directly classified rows, so Shooter excludes FPS/TPS-only games, or sums the subgenres and presents the overlap ($30.6M+) as Action's total | Genre Roll-up Rule; Genre Revenue (not additive) |
 
-**Expected behaviour without the ontology:** questions 2, 3, 5, 8, 9, 10, 13, 14, 15, 16 and 19 usually fail outright. Questions 1, 4, 6, 7, 11, 12, 17 and 18 usually return a plausible but wrong number. Question 20 cannot be answered.
+**Expected behaviour without the ontology:** questions 2, 3, 5, 8, 9, 10, 13, 14, 15, 16 and 19 usually fail outright. Questions 1, 4, 6, 7, 11, 12, 17 and 18 usually return a plausible but wrong number. Question 20 cannot be answered. With the GENRE_ROLLUP table in the semantic view, the baseline agent can show parent genres for 21 and 23 but should still undercount revenue (strong key only) and get 0 for RPG (22).
+
+**Genre totals are not additive:** the eight top-level totals in Q21 add up to $30,641,565.30 (more than the $19,231,852.01 total) because each game counts in every genre it belongs to. `MultiplayerAvailable` and `Other` are top-level rows in `GENRE_RULES`, so they appear in the ranking.
 
 ## Results template
 
@@ -71,7 +76,10 @@ Twenty questions for testing an agent on the messy `ONTOLOGY_DEMO` systems, **wi
 | 18 | | | | | |
 | 19 | | | | | |
 | 20 | | | | | |
-| **Total** | | **/20** | | **/20** | |
+| 21 | Action ~$13.2M (strong key only) | No | Action ~$14.44M, 65 games | Partial: $198,000.00 short (Ghost of Yōtei weak match missed) | Run 2026-10-14. BON used the roll-up view and the identity rule; Genre Revenue node not found by search yet |
+| 22 | $15.86M (ActionRPG incl. non-FULL rows) | No | $13,238,693.28, 42 games | Partial: same $198,000.00 gap | BON applied the RPG rule (RPG + Roguelike + ActionRPG + Soulslike) |
+| 23 | ActionRPG $12.28M, DynamicAdventure $11.71M, Shooter $6.64M (strong key; inferred subgenres) | No | ActionRPG ~$13.24M, DynamicAdventure ~$12.46M, Shooter ~$7.64M | Partial: same Yōtei gap | Both warned that rows overlap |
+| **Total** | | **/23** | | **/23** | |
 
 ## Reference SQL (expected answers)
 
@@ -88,7 +96,7 @@ WITH xref AS (
     FROM ONTOLOGY_DEMO.GAME_SALES.TITLES t
     LEFT JOIN xref x ON x.TITLE_ID = t.TITLE_ID
     LEFT JOIN ONTOLOGY_DEMO.GAME_CATALOG.GAMES w
-      ON LOWER(TRANSLATE(w.GAME_NAME, 'ōöéü', 'ooeu')) = LOWER(t.TITLE_NAME)
+      ON COLLATE(w.GAME_NAME, 'en-ci-ai') = COLLATE(t.TITLE_NAME, 'en-ci-ai')
      AND YEAR(w.RELEASE_DATE) = YEAR(TO_DATE(t.RELEASE_DATE, 'YYYYMMDD'))
 ), game_revenue AS (
     SELECT tg.GAME_ID, SUM(d.GROSS_REVENUE) AS INCOME
@@ -121,3 +129,60 @@ SELECT ... ;
 | 18 | `SELECT COUNT(DISTINCT GAME_ID) FROM game_revenue;` (naive: `SELECT COUNT(DISTINCT DIGITAL_PRODUCT_ID) FROM ONTOLOGY_DEMO.GAME_SALES.DIGITAL_PRODUCT_TRANSACTIONS` → 351) |
 | 19 | `SELECT g.GAME_NAME, r.MONETIZATION_TYPE FROM ONTOLOGY_DEMO.GAME_SALES.DIGITAL_PRODUCTS p JOIN ONTOLOGY_DEMO.GAME_SALES.TITLE_CODE_XREF x ON p.SKU_CODE LIKE x.TITLE_CODE || '-%' JOIN ONTOLOGY_DEMO.GAME_CATALOG.GAMES g ON g.GAME_ID = x.CATALOG_GAME_ID JOIN ONTOLOGY_DEMO.GAME_SALES.REVENUE_TYPES r ON r.CATEGORY_ID = p.CATEGORY_ID WHERE p.SKU_CODE = 'CUSA86252-C1101';` |
 | 20 | No SQL. Answered from the ontology's representations (`SYSTEM$GET_GLOSSARY_GRAPH()` or catalog lineage) |
+| 21 | `SELECT g.G, COUNT(DISTINCT g.GAME_ID), SUM(r.INCOME) v FROM (SELECT GAME_ID, ROLLUP_GENRE G FROM ONTOLOGY_DEMO.GAME_CATALOG.VW_GAME_GENRE_ROLLUP WHERE ROLLUP_DEPTH = 1 AND ROLLUP_GENRE <> 'RPG' UNION SELECT GAME_ID, 'RPG' FROM ONTOLOGY_DEMO.GAME_CATALOG.VW_GAME_GENRE_ROLLUP WHERE ROLLUP_GENRE IN ('RPG','Roguelike','ActionRPG','Soulslike')) g JOIN game_revenue r ON r.GAME_ID = g.GAME_ID GROUP BY 1 ORDER BY v DESC;` |
+| 22 | `SELECT SUM(INCOME) FROM game_revenue WHERE GAME_ID IN (SELECT GAME_ID FROM ONTOLOGY_DEMO.GAME_CATALOG.VW_GAME_GENRE_ROLLUP WHERE ROLLUP_GENRE IN ('RPG','Roguelike','ActionRPG','Soulslike'));` |
+| 23 | `SELECT u.ROLLUP_GENRE, SUM(r.INCOME) v FROM ONTOLOGY_DEMO.GAME_CATALOG.VW_GAME_GENRE_ROLLUP u JOIN ONTOLOGY_DEMO.GAME_CATALOG.VW_GENRE_HIERARCHY h ON h.GENRE = u.ROLLUP_GENRE JOIN game_revenue r ON r.GAME_ID = u.GAME_ID WHERE h.PARENT_GENRE = 'Action' GROUP BY 1 ORDER BY v DESC;` |
+
+Strong-key-only naive figures (Q21b, Q22) join `DIGITAL_PRODUCTS.TITLE_ID` to `TITLES` and keep only `TITLES.CATALOG_GAME_ID`, which is the only title-to-game join in `GAMING_BASELINE_SV`.
+
+
+# RESULTS OF RUNNING IN REACT UI
+The REACT UI uses an LLM as-a-Judge to determine which is correct or wrong.
+
+## BOTH CORRECT: BASELINE AND ONTOLOGY
+These are the same for both and are not good representations of why ontology is needed. 
+
+Q1 | What is our total digital game revenue? 
+Q2 | How much revenue did Gran Turismo 7 make?  
+
+- Baseline Agent Thinking said: "GT7's products point to a title ID (5060) that isn't in the titles table. A search by title name therefore misses GT7 completely, so I matched on product names instead. LLM is reasoning around the weaknesses in the data."
+
+Q3 | How much revenue did Ghost of Yōtei make?
+Q7 | How many active customers do we have?
+Q8 | How many active customers are in North America?
+- Baseline Agent made assumptions that ended up correct this time.
+
+Q9 | What was hardware revenue in North America?
+- When I change the QUESTION TO 'What was console revenue in North America?
+This fails on the Baseline as it does not know how to alias 'console = hardware'
+Perhaps, we change Q9 wording to 'What was console revenue in North America?
+
+Q10 | How much revenue came from battle passes?
+- Baseline Agent made monetization type assumptions that worked
+
+Q12 | How much total revenue does the platform keep across hardware, digital and subscriptions?
+Q13 | How many RPG games are there? 
+Q14 | How many first-person shooters are there?
+Q16 | How many game-platform pairs are currently exclusive? 
+Q19 | What game and product type is SKU CUSA86252-C1101?
+
+
+## Ontology CORRECT, Baseline WRONG
+These are good candidates to show uplift from ontology
+
+Q4 | What is total revenue across all catalog games?
+Q5 | Which developer earned the most revenue, and how much? 
+Q6 | How much revenue did the God of War franchise make?
+- Need to verify again. Q4, Q5, Q6 show same reasoning for correctness so they don't all need to be tested. We can pick one, like Q4.
+
+Q11 | How much digital revenue does the publisher keep after store commission?
+Rounding error on Baseline agent. Ontology was more precise.
+
+Q15 | How much revenue did first-person shooters make?
+Since FPS Q13 was same.
+
+Q18 | How many games have digital sales?
+Q20 | Which business concepts break if the store title-code crosswalk is removed? 
+Q21 | Which genre has the most revenue?
+Q22 | How much revenue did RPG games make?
+Q23 | What is revenue for each Action subgenre?

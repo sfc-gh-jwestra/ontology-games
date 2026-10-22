@@ -1,6 +1,19 @@
 # Design issue: genre hierarchy and "revenue per genre"
 
-Status: **open, not implemented** (written 2026-10-14). Nothing below has been changed in Snowflake or in the build files.
+Status: **implemented 2026-10-14**. Original proposal kept below for history.
+
+What was built (plan `genre-hierarchy-revenue-support`):
+
+- `GAME_CATALOG.VW_GAME_GENRE_ROLLUP` (GAME_ID, ROLLUP_GENRE, ROLLUP_DEPTH): strict tree, DISTINCT per (game, genre). `LEAF_GENRE` was dropped because it would duplicate rows and double-count revenue.
+- `GAMING_BASELINE_SV`: logical table `GENRE_ROLLUP` + relationship `GENRE_ROLLUP_GAME`.
+- Ontology: new TERM **Genre Roll-up Rule** and METRIC **Genre Revenue**, 5 relationships and 4 representations, all ACTIVE (`build/06_genre_rollup.sql`).
+- Open question answers:
+  - Edges stay `RELATED_TO`; `CUSTOM` was not used.
+  - D9 is not applied in the view.
+  - Genre Revenue uses gross revenue.
+  - Title-to-game matching stays ontology-only; nothing was added to the SV.
+- Eval questions 21-23 added to `ontology_eval_set.md`.
+- **Description edits:** Genre and the 14 genre terms now point at GENRE_ROLLUP. They were applied with live `SYSTEM$UPDATE_GLOSSARY_TERM`, because `SYSTEM$DRAFT_GLOSSARY_TERM_UPDATE` (edit cards) returns `Unsupported feature` in this account. Using live UPDATE was the user's decision.
 
 The file covers:
 

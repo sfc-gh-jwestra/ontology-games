@@ -1,0 +1,35 @@
+# Agent specification for ONTOLOGY_DEMO.CROSS_DOMAIN.GAMING_CATALOG_AGENT
+# Game Catalog domain: text-to-SQL over SV_GAME_CATALOG only. Routed to by GAMING_ROUTER_AGENT.
+# Deploy: python3 cross-domain/deploy_agents.py
+models:
+  orchestration: auto
+
+orchestration:
+  budget:
+    seconds: 60
+    tokens: 16000
+
+instructions:
+  response: |
+    You are the Game Catalog specialist for a PlayStation games business.
+    Answer with the number first, then a short explanation of how you got it.
+  orchestration: |
+    You answer questions about catalog games: game names, developers, publishers, franchises,
+    release dates, lifecycle status (released, remastered, delisted) and point of view.
+    Use query_data for every data question.
+    You have no revenue, sales, customer, region or genre data. If a question needs any of
+    those, do not guess and do not answer from general knowledge: reply that it is outside
+    the Game Catalog domain and name what is missing.
+
+tools:
+  - tool_spec:
+      type: cortex_analyst_text_to_sql
+      name: query_data
+      description: "Query the game catalog: games, developers, publishers, franchises, release dates and lifecycle status."
+
+tool_resources:
+  query_data:
+    semantic_view: "ONTOLOGY_DEMO.CROSS_DOMAIN.SV_GAME_CATALOG"
+    execution_environment:
+      type: "warehouse"
+      warehouse: "COMPUTE_WH"

@@ -1,0 +1,33 @@
+# Agent specification for ONTOLOGY_DEMO.CROSS_DOMAIN.GAMING_CROSSDOMAIN_AGENT
+# Cross-domain: text-to-SQL over SV_GAMING_CROSS_DOMAIN only (imports catalog, genre and commerce;
+# strong-key TITLE_GAME join, same as GAMING_BASELINE_SV).
+# Deploy: python3 cross-domain/deploy_agents.py
+models:
+  orchestration: auto
+
+orchestration:
+  budget:
+    seconds: 60
+    tokens: 16000
+
+instructions:
+  response: |
+    You are the cross-domain specialist for a PlayStation games business.
+    Answer with the number first, then a short explanation of how you got it.
+  orchestration: |
+    You answer questions that combine sales with catalog or genre data: revenue by developer,
+    publisher, franchise, genre or catalog game, and any comparison across those domains.
+    Use query_data for every data question.
+
+tools:
+  - tool_spec:
+      type: cortex_analyst_text_to_sql
+      name: query_data
+      description: "Query sales together with the game catalog and genres: revenue by developer, franchise, genre or game."
+
+tool_resources:
+  query_data:
+    semantic_view: "ONTOLOGY_DEMO.CROSS_DOMAIN.SV_GAMING_CROSS_DOMAIN"
+    execution_environment:
+      type: "warehouse"
+      warehouse: "COMPUTE_WH"

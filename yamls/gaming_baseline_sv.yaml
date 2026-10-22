@@ -175,6 +175,28 @@ tables:
       - name: CLASSIFIED_GAME_COUNT
         expr: COUNT(DISTINCT genre_classification.GAME_ID)
         access_modifier: public_access
+  - name: GENRE_ROLLUP
+    base_table:
+      database: ONTOLOGY_DEMO
+      schema: GAME_CATALOG
+      table: VW_GAME_GENRE_ROLLUP
+    primary_key:
+      columns:
+        - GAME_ID
+        - ROLLUP_GENRE
+    dimensions:
+      - name: ROLLUP_GENRE
+        expr: ROLLUP_GENRE
+        data_type: VARCHAR(16777216)
+        access_modifier: public_access
+      - name: ROLLUP_DEPTH
+        expr: ROLLUP_DEPTH
+        data_type: "NUMBER(38,0)"
+        access_modifier: public_access
+    metrics:
+      - name: ROLLUP_GAME_COUNT
+        expr: COUNT(DISTINCT genre_rollup.GAME_ID)
+        access_modifier: public_access
   - name: HARDWARE_PRODUCTS
     base_table:
       database: ONTOLOGY_DEMO
@@ -417,6 +439,12 @@ relationships:
         right_column: GAME_ID
   - name: GENRE_GAME
     left_table: GENRE_CLASSIFICATION
+    right_table: GAMES
+    relationship_columns:
+      - left_column: GAME_ID
+        right_column: GAME_ID
+  - name: GENRE_ROLLUP_GAME
+    left_table: GENRE_ROLLUP
     right_table: GAMES
     relationship_columns:
       - left_column: GAME_ID
