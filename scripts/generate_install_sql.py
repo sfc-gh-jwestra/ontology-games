@@ -25,6 +25,7 @@ INSTALL = ROOT / "install"
 DB = "ONTOLOGY_DEMO"
 SCHEMAS = ["GAME_CATALOG", "GAME_SALES"]
 AGENT_SCHEMA = f"{DB}.AGENTS"
+APP_ROLE = "ONTOLOGY_APP_ROLE"  # the role the web app and batch eval run as (app/sql/01_app_role.sql)
 # Semantic views in create order: each one comes after the views it imports. Each YAML's first
 # line names its target, e.g. "# Semantic view ONTOLOGY_DEMO.GAME_CATALOG.SV_GAME_CATALOG".
 SV_ORDER = ["SV_GAME_CATALOG", "SV_GENRE_TAXONOMY", "SV_GAME_COMMERCE", "SV_GAMING_CROSS_DOMAIN"]
@@ -167,7 +168,7 @@ def semantic_views():
 def gen_03():
     parts = [header("03-deploy-sv-and-agents", "semantic_views/*.yaml, agents/*.yaml and agents/router/*.yaml"),
              "-- Each semantic view lives in the schema of its data; SV_GAMING_CROSS_DOMAIN (imports the other three)\n"
-             f"-- lives in GAME_CATALOG. All agents live in {AGENT_SCHEMA}. Grants for the app role: app/sql/01_local_oauth.sql.\n\n",
+             f"-- lives in GAME_CATALOG. All agents live in {AGENT_SCHEMA}. Grants for the app role: app/sql/01_app_role.sql.\n\n",
              f"CREATE SCHEMA IF NOT EXISTS {AGENT_SCHEMA};\n\n"]
     svs = semantic_views()
     parts.append("-- Drop importing views before the views they import\n")
@@ -186,6 +187,13 @@ def gen_03():
                      f"  COMMENT = {sql_str(comment)}\n"
                      f"  PROFILE = {sql_str(profile)}\n"
                      f"  FROM SPECIFICATION {dollar(chr(10) + f.read_text() + chr(10), f.name)};\n\n")
+    # CREATE OR REPLACE drops grants, so re-apply the app role's grants every time this step runs
+    # (install.sh --only 03 included). Step 05 (app/sql/01_app_role.sql) holds the full set.
+    parts.append(f"-- Re-apply {APP_ROLE} grants on the objects recreated above\n"
+                 f"CREATE ROLE IF NOT EXISTS {APP_ROLE};\n")
+    parts += [f"GRANT SELECT, REFERENCES ON SEMANTIC VIEW {schema}.{name} TO ROLE {APP_ROLE};\n"
+              for schema, name, _, _ in svs]
+    parts.append(f"GRANT USAGE ON ALL AGENTS IN SCHEMA {AGENT_SCHEMA} TO ROLE {APP_ROLE};\n")
     return "".join(parts)
 
 

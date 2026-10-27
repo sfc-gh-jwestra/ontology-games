@@ -34,6 +34,28 @@ A Snowflake Business Ontology demo on two deliberately complex game-business sys
 - Python 3 with `pyyaml` (`pip install pyyaml`).
 - For the web app only: Node.js. `app/dev.sh` installs the backend packages into `app/.venv`.
 
+## Easy button: install with CoCo
+
+Open this folder in [Cortex Code](https://docs.snowflake.com/en/user-guide/cortex-code/cortex-code) and paste:
+
+```
+Install the ontology-games demo in this repo into my Snowflake account, using the
+connection ONTOLOGY_DEMO_CONN.
+
+First, create a plan; don't run anything yet. Read README.md, install.sh and install/,
+check that the connection works and uses a role that can do this install (ACCOUNTADMIN),
+then plan each install step (00 to 06) with what it will create. Stop and let me review
+the plan.
+
+When I build the plan, run the install with install.sh one step at a time, and tell me
+after each step what was created. Record progress in project memory. After step 04, check
+whether Business Ontology search returns "Game Revenue"; if not, tell me it is still
+indexing. Run step 06 in a background terminal and finish with the compare app open at
+http://localhost:5173.
+```
+
+CoCo creates the plan first, so you can see every object it will create before anything runs. Clicking **Build** on the plan starts the install. Because CoCo records progress in its project memory, you can stop at any point and say "resume the ontology-games install" later.
+
 ## Install, step by step
 
 From the repo root:
@@ -60,6 +82,99 @@ bash install.sh --only 04  # run one step
 - Step 02 replaces every table with `CREATE OR REPLACE`, so re-running it resets the data to the Parquet snapshot.
 - Business Ontology search can take a while to index new terms. Wait until `cortex search object "Game Revenue" --types=business-ontology` returns results before running the evaluation.
 - To check an install against the last known state, compare row counts and answers with [documentation/install-baseline-snapshot.md](documentation/install-baseline-snapshot.md).
+- To re-run the graded eval, see [Re-run the batch eval](#re-run-the-batch-eval) below.
+
+## Re-run the batch eval
+
+The install does **not** run the eval. The web app's Recorded mode and Analysis tab show the run committed in `evaluations/results/latest.json`. That run was recorded on another account, so re-run the eval to score the agents in yours.
+
+**Before you run it:** finish the install, through step 05 at least. Also wait for Business Ontology search to index the new terms (see the notes above). Otherwise the ontology agent scores low because its ontology search returns nothing.
+
+```bash
+# From the repo root. Runs all 13 questions through both agents, then grades each pair.
+SNOWFLAKE_CONNECTION_NAME=<connection> python3 scripts/batch_eval.py
+
+# Options
+python3 scripts/batch_eval.py --only 3,5,6          # a subset of question ids
+python3 scripts/batch_eval.py --workers 2           # fewer parallel runs (default 4)
+python3 scripts/batch_eval.py --role <role> --warehouse <wh>   # defaults: ONTOLOGY_APP_ROLE, COMPUTE_WH
+python3 scripts/batch_eval.py --summarize evaluations/results/latest.json   # rebuild the .md only, no Snowflake
+```
+
+**What a run does:**
+- Calls `SNOWFLAKE.CORTEX.DATA_AGENT_RUN` for `GAMING_BASELINE_AGENT` and `GAMING_BON_AGENT` on every question in [documentation/ontology_eval_set.md](documentation/ontology_eval_set.md), as `ONTOLOGY_APP_ROLE` with no secondary roles.
+- Records each answer's text, every tool call in order, the SQL it ran, row counts, tokens and elapsed time.
+- Grades both answers in one `AI_COMPLETE` call (claude-sonnet-4-5, temperature 0). It uses the same judge as the app's Live mode (`app/backend/judge.py`):
+
+  | Score | Meaning |
+  |---|---|
+  | 1.0 | Amounts within 1% of expected, and counts and names exact |
+  | 0.67 | Amounts within 3% of expected |
+  | 0.33 | The right answer appears only as an alternative |
+  | 0 | Anything else |
+
+  A score of 0.67 or more counts as correct.
+- Takes several minutes and uses credits: 26 agent runs plus 13 judge calls.
+
+**What it updates** (all under `evaluations/results/`):
+
+| File | Contents | In git? |
+|---|---|---|
+| `<run_id>.json` | The full run, with `run_id` = `YYYYMMDD_HHMM` | No (ignored) |
+| `<run_id>.md` | A readable summary: scores by challenge C1-C7, then "Why answers failed" with the judge's reasons | No (ignored) |
+| `latest.json` | A copy of the newest run's JSON | **Yes** |
+
+`--only` runs also overwrite `latest.json`, so the app then shows only that subset.
+
+**How it changes the UI:** the app backend reads `latest.json` on every request, so the new run appears when you reload the page. You don't need to restart the app.
+- **Compare tab, Recorded mode:** each question shows the new answers, scores, judge reasons, tool calls and SQL. The scorecard by challenge and the batch run id under the picker both update.
+- **Analysis tab:** the stat cards and every question card (behaviour table, answers, reasons) show the new run.
+- **Live mode** doesn't use `latest.json`. It runs the agents again and grades them with the same judge.
+
+To keep a run as the demo's default, commit the new `latest.json`. To go back to the committed one, run `git checkout evaluations/results/latest.json`.
+
+## Multi-agent router demo
+
+An optional front-door agent, `GAMING_ROUTER_AGENT`, uses the preview `agent_router` tool to send each question to the domain agent that owns it. It isn't part of the with/without-ontology comparison, and none of these agents search the Business Ontology. Details: [documentation/agent_router_demo.md](documentation/agent_router_demo.md). Tool background: [documentation/agent_router.md](documentation/agent_router.md).
+
+| Agent (`ONTOLOGY_DEMO.AGENTS`) | Semantic view | Answers |
+|---|---|---|
+| `GAMING_CATALOG_AGENT` | `GAME_CATALOG.SV_GAME_CATALOG` | games, developers, publishers, franchises, release dates, lifecycle status |
+| `GAMING_GENRE_AGENT` | `GAME_CATALOG.SV_GENRE_TAXONOMY` | genre membership, counts by genre, parent genres and subgenres |
+| `GAMING_SALES_AGENT` | `GAME_SALES.SV_GAME_COMMERCE` | digital, hardware and subscription revenue, customers, regions, products |
+| `GAMING_BASELINE_AGENT` | `GAME_CATALOG.SV_GAMING_CROSS_DOMAIN` | cross-domain questions, such as revenue by developer or genre |
+| `GAMING_ROUTER_AGENT` | none | routes to one specialist, or several in parallel, and combines the answers |
+
+**Deploy.** Install step 03 creates all five agents from `agents/router/*.yaml` and `agents/GAMING_BASELINE_AGENT.yaml`, and step 05 grants `ONTOLOGY_APP_ROLE` the access the check runs with. Step 03 re-creates the agents, which drops their grants, so to redeploy only the agents and semantic views, run 05 again afterwards:
+
+```bash
+bash install.sh --only 00 && bash install.sh --only 03 && bash install.sh --only 05
+```
+
+**Test with CoCo.** Paste:
+
+```
+Run scripts/agent_routing_check.sql against my Snowflake account using the connection
+ONTOLOGY_DEMO_CONN, one statement at a time. For each question, show me a table with
+the expected specialist, the subagent the router actually called (subagent_name), and
+the answer. Flag any question that went to the wrong agent, and confirm that the catalog
+agent declined the sales question without running SQL.
+```
+
+Or run it yourself: `snow sql -c ONTOLOGY_DEMO_CONN -f scripts/agent_routing_check.sql`. Each statement takes 30-120 seconds.
+
+| # | Question | Expected route |
+|---|---|---|
+| 1 | How many games has Santa Monica Studio developed? | Catalog agent |
+| 2 | How many RPG games are there? | Genre agent |
+| 3 | What was hardware revenue in North America? | Sales agent |
+| 4 | Which developer earned the most revenue? | Baseline agent (cross-domain). This gives the strong-key answer, not the governed one. |
+| 5 | How many Horror games are there, and what was total subscription revenue? | Genre and Sales agents in parallel (`direct_route: false`) |
+| 6 | Catalog agent asked directly: What was hardware revenue in North America? | Declines, no tool call |
+
+**Caveats.**
+- **Preview tool.** `agent_router` is a preview, undocumented tool, and `CREATE AGENT` doesn't validate it. After a change, check the spec with `DESCRIBE AGENT ONTOLOGY_DEMO.AGENTS.GAMING_ROUTER_AGENT`.
+- **Snowsight.** Snowsight doesn't show the router's subagents, and it can't open semantic views that use `IMPORTS`.
 
 ## Layout
 
@@ -70,6 +185,8 @@ scripts/
   generate_install_sql.py     writes install/02, 03, 04a, 04b from the sources below
   build_ontology.py           Business Ontology content (domains, terms, relationships, representations)
   agent_routing_check.sql     routing check for the optional router demo
+  batch_eval.py               graded eval of both agents over all questions (writes evaluations/results/)
+evaluations/results/          batch eval runs (<run_id>.json/.md, latest.json for the app's Recorded mode)
 data/<SCHEMA>/*.parquet       the data (GAME_CATALOG, GAME_SALES)
 sql/<SCHEMA>/<type>/*.sql     object DDL: tables, views, functions, procedures, dynamic_tables
 semantic_views/               SV_GAME_CATALOG, SV_GENRE_TAXONOMY, SV_GAME_COMMERCE, SV_GAMING_CROSS_DOMAIN (.yaml;
@@ -91,3 +208,8 @@ Edit the sources (`sql/`, `semantic_views/`, `agents/`, `scripts/build_ontology.
 - [data-generation.md](documentation/data-generation.md): how to generate new data for the current schemas
 - [genre-hierarchy-design-issue.md](documentation/genre-hierarchy-design-issue.md): genre roll-up design notes
 - [agent_router_demo.md](documentation/agent_router_demo.md): the optional router agent and its domain agents
+- [agent_router.md](documentation/agent_router.md): what the preview `agent_router` tool is and how it compares with `agent_toolset`
+- [database-design.md](documentation/database-design.md): the `ONTOLOGY_DEMO` schemas and the objects in each
+- [install-baseline-snapshot.md](documentation/install-baseline-snapshot.md): row counts and answers from the last known-good install
+- [app/README.md](app/README.md): the compare web app (Recorded and Live modes, graded judge)
+- [limitedaccess-links.md](documentation/limitedaccess-links.md): private preview docs used here: [Business Ontology](https://docs.snowflake.com/en/LIMITEDACCESS/snowflake-horizon/business-ontology), [Composable semantic views](https://docs.snowflake.com/en/LIMITEDACCESS/composable-semantic-views), and the agent router references
