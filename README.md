@@ -1,6 +1,10 @@
 # ontology-games
 
+> **Disclaimer.** This demo uses game data publicly sourced from the web, so it may contain inaccuracies when compared with real data. All revenue and sales data is fictional and synthetically generated, based on how games have historically earned revenue. Sony was chosen because of the popularity of its platform. Microsoft (Xbox), Nintendo, or a completely fictional game and console provider would serve the demonstration equally well.
+
 A Snowflake Business Ontology demo on two deliberately complex game-business systems, a game catalog and a sales system. It compares two Cortex Agents on the same 13 eval questions (11 that show the ontology's uplift, plus 2 controls): a baseline agent that only has a semantic view, and an agent that also searches Business Ontology. The ontology resolves the complexity: different names for the same thing, imperfect keys, a code crosswalk, divergent codes, overloaded columns and genre roll-ups.
+
+> **Plan for Business Ontology indexing time.** After the install builds the ontology (step 04), Business Ontology search can take **several hours** to index the new terms. Until it finishes, the ontology agent can't find its definitions, so it answers like the baseline, and evals and Live comparisons understate the uplift. The rest of the install doesn't wait for it. If you install with CoCo, you can stop and later say "resume the ontology-games install" to pick up where it left off and re-check the index. See [Install, step by step](#install-step-by-step).
 
 - **Data:** loaded from the Parquet files in `data/`. **Nothing is generated.** To change the data, see [documentation/data-generation.md](documentation/data-generation.md) (what a generator must produce for the current schemas, and how).
 - **Database:** `ONTOLOGY_DEMO`. Data and semantic views live in `GAME_CATALOG` and `GAME_SALES`; the agents live in `AGENTS`.
@@ -10,8 +14,8 @@ A Snowflake Business Ontology demo on two deliberately complex game-business sys
   |---|---|
   | `GAME_CATALOG.SV_GAME_CATALOG` | Game Catalog domain: 20 catalog tables and views |
   | `GAME_CATALOG.SV_GENRE_TAXONOMY` | Genre Taxonomy domain: 18 tables and views (imports `SV_GAME_CATALOG` for games) |
-  | `GAME_SALES.SV_GAME_COMMERCE` | Game Commerce domain: all 19 sales tables and views |
-  | `GAME_CATALOG.SV_GAMING_CROSS_DOMAIN` | Imports the three above (all 57 tables and views) and adds the one strong-key join, `TITLES.CATALOG_GAME_ID` to `GAMES` |
+  | `GAME_SALES.SV_GAME_COMMERCE` | Game Commerce domain: 18 sales tables and views |
+  | `GAME_CATALOG.SV_GAMING_CROSS_DOMAIN` | Imports the three above (all 56 tables and views) and adds the one strong-key join, `TITLES.CATALOG_GAME_ID` to `GAMES` |
 - **Questions and expected answers:** [documentation/ontology_eval_set.md](documentation/ontology_eval_set.md).
 
 ## Prerequisites
@@ -56,6 +60,8 @@ http://localhost:5173.
 
 CoCo creates the plan first, so you can see every object it will create before anything runs. Clicking **Build** on the plan starts the install. Because CoCo records progress in its project memory, you can stop at any point and say "resume the ontology-games install" later.
 
+Business Ontology indexing after step 04 can take **hours**. If CoCo reports that search doesn't return "Game Revenue" yet, let it finish the remaining steps, then come back later and ask CoCo to resume. It re-checks the index and tells you when the ontology agent is ready for evals and Live comparisons.
+
 ## Install, step by step
 
 From the repo root:
@@ -80,7 +86,7 @@ bash install.sh --only 04  # run one step
 **Notes**
 - Progress is saved in `.install_state`; delete it to start over.
 - Step 02 replaces every table with `CREATE OR REPLACE`, so re-running it resets the data to the Parquet snapshot.
-- Business Ontology search can take a while to index new terms. Wait until `cortex search object "Game Revenue" --types=business-ontology` returns results before running the evaluation.
+- **Business Ontology indexing can take hours.** After step 04, search may return nothing for new terms for several hours. Steps 05 and 06 don't depend on it, so the install can finish, and Recorded mode works right away. Wait until `cortex search object "Game Revenue" --types=business-ontology` returns results before running the batch eval or comparing agents Live. If you're installing with CoCo, you can stop here and later ask it to "resume the ontology-games install" to re-check the index.
 - To check an install against the last known state, compare row counts and answers with [documentation/install-baseline-snapshot.md](documentation/install-baseline-snapshot.md).
 - To re-run the graded eval, see [Re-run the batch eval](#re-run-the-batch-eval) below.
 
