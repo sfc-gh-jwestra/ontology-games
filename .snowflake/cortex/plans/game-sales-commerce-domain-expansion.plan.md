@@ -30,7 +30,6 @@ flowchart TD
 
 Platform commission (Sony's ~30% cut of digital sales) is derived from the gross vs. developer-net split on each digital transaction, so it has no table of its own.
 
-**Scope change:** synthetic data generation has moved to a separate follow-up plan, `game-sales-synthetic-data-generation.plan.md`, which keeps all the generation ideas (lifecycle-weighted category splits, volume options, exact-match verification against the backup). This plan only builds the schema and protects the existing revenue data.
 
 Existing objects affected:
 - [sql/game_sales/tables/MONTHLY_REVENUE.sql](sql/game_sales/tables/MONTHLY_REVENUE.sql): base table, 2,709 rows, $27,424,645,524 total. Becomes a view.
@@ -43,21 +42,19 @@ Existing objects affected:
 
 ```mermaid
 flowchart LR
-    MR_T["MONTHLY_REVENUE table (2,709 rows)"] -->|"CREATE TABLE ... CLONE"| BK["BACKUP_GAME_MNTHLY_REVENUE"]
+    MR_T["MONTHLY_REVENUE table (2,709 rows)"] -->|"CREATE TABLE ... CLONE"| BK["SOURCE_GAME_MONTHLY_REVENUE"]
     BK -->|"verify count, sum, HASH_AGG identical"| OK{Match?}
     OK -->|yes| Next[Continue with schema changes]
     OK -->|no| Stop[Stop and report]
 ```
 
-1. Copy, don't just rename: `CREATE TABLE ONTOLOGY_DEMO.GAME_SALES.BACKUP_GAME_MNTHLY_REVENUE CLONE ONTOLOGY_DEMO.GAME_SALES.MONTHLY_REVENUE;` A clone gives an independent copy with the same columns, primary key, and data, while the original stays in place until the copy is verified.
+1. Copy, don't just rename: `CREATE TABLE ONTOLOGY_DEMO.GAME_SALES.SOURCE_GAME_MONTHLY_REVENUE CLONE ONTOLOGY_DEMO.GAME_SALES.MONTHLY_REVENUE;` A clone gives an independent copy with the same columns, primary key, and data, while the original stays in place until the copy is verified.
 2. Verify the copy is identical before going further:
    ```sql
    SELECT 'orig' src, COUNT(*), SUM(MONTHLY_INCOME), HASH_AGG(*) FROM ONTOLOGY_DEMO.GAME_SALES.MONTHLY_REVENUE
    UNION ALL
-   SELECT 'backup', COUNT(*), SUM(MONTHLY_INCOME), HASH_AGG(*) FROM ONTOLOGY_DEMO.GAME_SALES.BACKUP_GAME_MNTHLY_REVENUE;
    ```
    Expected for both: 2,709 rows, $27,424,645,524 (rounded), same hash. If anything differs, stop.
-3. Save the backup DDL to `sql/game_sales/tables/BACKUP_GAME_MNTHLY_REVENUE.sql`.
 4. Safety net: the dropped MONTHLY_REVENUE table also remains recoverable through Time Travel (`UNDROP`) for the retention period, but the clone is the primary copy.
 
 ## Step 1: freeze downstream revenue numbers
@@ -65,7 +62,6 @@ flowchart LR
 The new fact tables start empty, so a live MONTHLY_REVENUE view would return no rows until the follow-up plan generates data. To keep revenue numbers visible in the meantime:
 - `ALTER DYNAMIC TABLE GAME_REVENUE SUSPEND;` and `ALTER DYNAMIC TABLE QUARTERLY_REVENUE SUSPEND;` before the swap. Suspended dynamic tables keep their last refreshed data (65 and 945 rows), so `VW_PLATFORM_EXCLUSIVITY` and anything reading them keep working.
 - They are resumed in the follow-up plan once the transactions exist.
-- `SP_GENERATE_MONTHLY_REVENUE` must not be called in the interim. Once MONTHLY_REVENUE is a view, its TRUNCATE/INSERT fails, so it cannot touch the backup.
 
 ## New GAME_SALES entity-relationship design
 
@@ -179,7 +175,7 @@ Hardware has no `GAME_ID`, and platform-wide subscriptions have `GAME_ID` NULL, 
 
 ```mermaid
 flowchart LR
-    BK["BACKUP_GAME_MNTHLY_REVENUE (preserved original data)"]
+    BK["SOURCE_GAME_MONTHLY_REVENUE (preserved original data)"]
     subgraph PerGame [Per-Game Rollup]
         DPT[DIGITAL_PRODUCT_TRANSACTIONS] --> MR[MONTHLY_REVENUE view]
         SC1["SUBSCRIPTION_CHARGES (GAME_ID NOT NULL)"] --> MR
@@ -228,25 +224,21 @@ flowchart LR
 
 ## Implementation steps
 
-1. Clone `MONTHLY_REVENUE` to `BACKUP_GAME_MNTHLY_REVENUE`, verify count/sum/hash are identical, and save its DDL file. Stop if anything differs.
+1. Clone `MONTHLY_REVENUE` to `SOURCE_GAME_MONTHLY_REVENUE`, verify count/sum/hash are identical, and save its DDL file. Stop if anything differs.
 2. Suspend `GAME_REVENUE` and `QUARTERLY_REVENUE` so they keep their current data.
 3. Create dimension tables (`REVENUE_CATEGORIES`, `CUSTOMER_ACCOUNTS`, `HARDWARE_PRODUCTS`, `DIGITAL_PRODUCTS`, `SUBSCRIPTION_PLANS`) and seed the 13 `REVENUE_CATEGORIES` rows.
 4. Create fact tables (`HARDWARE_SALES_TRANSACTIONS`, `DIGITAL_PRODUCT_TRANSACTIONS`, `SUBSCRIPTION_CHARGES`), empty.
-5. Re-verify the backup, then drop the `MONTHLY_REVENUE` table and create the `MONTHLY_REVENUE` view.
 6. Create `VW_PLATFORM_REVENUE_SUMMARY`.
-7. Update the local `sql/game_sales/` tree: new table files, move `MONTHLY_REVENUE.sql` from `tables/` to `views/`, add the backup and summary view files.
 
 ## Verification
 
-- Backup check (step 1 and again before the drop): 2,709 rows, same `SUM(MONTHLY_INCOME)`, same `HASH_AGG(*)` as the original.
-- After the swap: `SELECT COUNT(*), SUM(MONTHLY_INCOME) FROM BACKUP_GAME_MNTHLY_REVENUE` still returns 2,709 / $27.42B.
+- After the swap: `SELECT COUNT(*), SUM(MONTHLY_INCOME) FROM SOURCE_GAME_MONTHLY_REVENUE` still returns 2,709 / $27.42B.
 - `GAME_REVENUE` (65 rows) and `QUARTERLY_REVENUE` (945 rows) still return their data while suspended; `VW_PLATFORM_EXCLUSIVITY` still shows income.
 - New `MONTHLY_REVENUE` view and `VW_PLATFORM_REVENUE_SUMMARY` compile and return 0 rows (expected until the follow-up plan).
 - `REVENUE_CATEGORIES` has 13 rows.
-- Matching the generated digital sales against the backup is done in the follow-up plan.
 
 ## Critical files
-- `sql/game_sales/tables/BACKUP_GAME_MNTHLY_REVENUE.sql` (new): the preserved original revenue data and the driver for later generation.
+- `sql/game_sales/tables/SOURCE_GAME_MONTHLY_REVENUE.sql` (new): the preserved original revenue data and the driver for later generation.
 - [sql/game_sales/tables/MONTHLY_REVENUE.sql](sql/game_sales/tables/MONTHLY_REVENUE.sql): becomes `sql/game_sales/views/MONTHLY_REVENUE.sql`.
 - [sql/game_sales/dynamic_tables/GAME_REVENUE.sql](sql/game_sales/dynamic_tables/GAME_REVENUE.sql) / [sql/game_sales/dynamic_tables/QUARTERLY_REVENUE.sql](sql/game_sales/dynamic_tables/QUARTERLY_REVENUE.sql): suspended, SQL unchanged.
 - `sql/game_sales/tables/DIGITAL_PRODUCT_TRANSACTIONS.sql` (new): main fact table feeding both rollups.

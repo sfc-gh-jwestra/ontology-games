@@ -20,7 +20,7 @@ status: pending
 | Keep in GAME\_SALES (business)                                                                                                                                                                                                                                                                                                       | Move to GAME\_SALES\_GEN (generation)                                                                                                                            |
 | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Tables: CUSTOMER\_ACCOUNTS, DIGITAL\_PRODUCTS, DIGITAL\_PRODUCT\_TRANSACTIONS, HARDWARE\_PRODUCTS, HARDWARE\_SALES\_TRANSACTIONS, SUBSCRIPTION\_PLANS, SUBSCRIPTION\_CHARGES, REVENUE\_CATEGORIES, GAMES, PLATFORMS, GAME\_PLATFORMS, MONETIZATION\_TYPES, GAME\_MONETIZATION (the last two kept as business reference, your choice) | `GAME_REVENUE_TARGETS`: the generator's per game-month targets                                                                                                   |
-| Views: MONTHLY\_REVENUE, VW\_PLATFORM\_EXCLUSIVITY, VW\_PLATFORM\_REVENUE\_SUMMARY                                                                                                                                                                                                                                                   | `BACKUP_GAME_MNTHLY_REVENUE`: source revenue the targets come from; protected, so it's moved, never copied or edited                                             |
+| Views: MONTHLY\_REVENUE, VW\_PLATFORM\_EXCLUSIVITY, VW\_PLATFORM\_REVENUE\_SUMMARY                                                                                                                                                                                                                                                   | `SOURCE_GAME_MONTHLY_REVENUE`: source revenue the targets come from; protected, so it's moved, never copied or edited                                             |
 | Dynamic tables: GAME\_REVENUE, QUARTERLY\_REVENUE                                                                                                                                                                                                                                                                                    | `ADD_GAME_TMP`: add-game skill staging; the generator reads its revenue estimates                                                                                |
 |                                                                                                                                                                                                                                                                                                                                      | Procedures: SP\_GENERATE\_SALES, SP\_GEN\_CATALOG, SP\_GEN\_CUSTOMERS\_AND\_HARDWARE, SP\_GEN\_REVENUE\_TARGETS, SP\_GEN\_DIGITAL\_SALES, SP\_GEN\_SUBSCRIPTIONS |
 |                                                                                                                                                                                                                                                                                                                                      | Function: UDF\_U01                                                                                                                                               |
@@ -34,7 +34,7 @@ status: pending
 flowchart LR
   subgraph gen [GAME_SALES_GEN - generator]
     Seeds["Seeds: SALES_GEN_CONFIG, histories, weights, overrides"]
-    Inputs["BACKUP_GAME_MNTHLY_REVENUE, ADD_GAME_TMP"]
+    Inputs["SOURCE_GAME_MONTHLY_REVENUE, ADD_GAME_TMP"]
     Code["SP_GENERATE_SALES + 5 SP_GEN steps, UDF_U01"]
     Work["GAME_REVENUE_TARGETS + transient GEN_ scratch"]
   end
@@ -51,16 +51,16 @@ flowchart LR
 
 ## Implementation steps
 
-1. **Move 3 tables** with `ALTER TABLE ... RENAME TO ONTOLOGY_DEMO.GAME_SALES_GEN.<name>`: `GAME_REVENUE_TARGETS`, `BACKUP_GAME_MNTHLY_REVENUE` and `ADD_GAME_TMP`.
+1. **Move 3 tables** with `ALTER TABLE ... RENAME TO ONTOLOGY_DEMO.GAME_SALES_GEN.<name>`: `GAME_REVENUE_TARGETS`, `SOURCE_GAME_MONTHLY_REVENUE` and `ADD_GAME_TMP`.
 
    - Data, keys and comments carry over unchanged.
-   - Check `BACKUP_GAME_MNTHLY_REVENUE` before and after: 587 rows, $8,900,181,986.02.
+   - Check `SOURCE_GAME_MONTHLY_REVENUE` before and after: 587 rows, $8,900,181,986.02.
 
 2. **Move the code files:**
 
    - `sql/game_sales/stored_procedures/{SP_GENERATE_SALES,SP_GEN_*}.sql` go to `sql/game_sales_gen/stored_procedures/`.
    - `sql/game_sales/functions/UDF_U01.sql` goes to `sql/game_sales_gen/functions/`.
-   - In those files, switch the procedure and function names, and their references to the moved tables (UDF\_U01, GAME\_REVENUE\_TARGETS, BACKUP\_GAME\_MNTHLY\_REVENUE, ADD\_GAME\_TMP, and the step calls inside the orchestrator), from `GAME_SALES.` to `GAME_SALES_GEN.`. References to real Sales tables keep `GAME_SALES.`.
+   - In those files, switch the procedure and function names, and their references to the moved tables (UDF\_U01, GAME\_REVENUE\_TARGETS, SOURCE\_GAME\_MONTHLY\_REVENUE, ADD\_GAME\_TMP, and the step calls inside the orchestrator), from `GAME_SALES.` to `GAME_SALES_GEN.`. References to real Sales tables keep `GAME_SALES.`.
    - Update the procedure comments that mention the old locations.
 
 3. **Create the code in GAME\_SALES\_GEN** from those files: the UDF first, then the 5 steps, then the orchestrator. Then drop the old `GAME_SALES` copies: 6 procedures and `UDF_U01(NUMBER, VARCHAR)`.
@@ -70,7 +70,7 @@ flowchart LR
 5. **Project files:**
 
    - Move `sql/game_sales/seeds/` to `sql/game_sales_gen/seeds/`. Inside, change the 6 seed tables' `DELETE`/`INSERT` targets to `GAME_SALES_GEN`. `HARDWARE_PRODUCTS` and `SUBSCRIPTION_PLANS` rows still target `GAME_SALES`.
-   - Move the DDL files to `sql/game_sales_gen/tables/`: the 6 seed tables plus `GAME_REVENUE_TARGETS`, `BACKUP_GAME_MNTHLY_REVENUE` and `ADD_GAME_TMP`, regenerated from `GET_DDL`.
+   - Move the DDL files to `sql/game_sales_gen/tables/`: the 6 seed tables plus `GAME_REVENUE_TARGETS`, `SOURCE_GAME_MONTHLY_REVENUE` and `ADD_GAME_TMP`, regenerated from `GET_DDL`.
    - Update `sql/game_sales_gen/SCHEMA.sql` to the new schema comment (seeds, inputs, code and scratch).
    - Leave `sql/game_sales/retired/` as is.
 
@@ -83,7 +83,6 @@ flowchart LR
 
 7. **Memory and cleanup:**
 
-   - Update the layout notes: GAME\_SALES is business-only; generator, seeds, staging and backup are in GAME\_SALES\_GEN.
    - Drop the `TMP_SEED_MOVE_BASELINE` scratch table after verification.
 
 ## Verification
@@ -109,7 +108,7 @@ flowchart LR
 ## Critical Files
 
 - sql/game\_sales/stored\_procedures/SP\_GENERATE\_SALES.sql - orchestrator; moves and its step calls change schema
-- sql/game\_sales/stored\_procedures/SP\_GEN\_REVENUE\_TARGETS.sql - reads BACKUP\_GAME\_MNTHLY\_REVENUE and writes GAME\_REVENUE\_TARGETS (both moving)
+- sql/game\_sales/stored\_procedures/SP\_GEN\_REVENUE\_TARGETS.sql - reads SOURCE\_GAME\_MONTHLY\_REVENUE and writes GAME\_REVENUE\_TARGETS (both moving)
 - sql/game\_sales/stored\_procedures/SP\_GEN\_CATALOG.sql - reads ADD\_GAME\_TMP and the override tables
 - sql/game\_sales/seeds/GENERATOR\_SEED\_DATA.sql - seed inserts whose targets change
 - SKILL.md - ADD\_GAME\_TMP, config and Phase 6 references

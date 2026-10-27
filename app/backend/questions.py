@@ -1,4 +1,4 @@
-"""Parse ontology_setup/ontology_eval_set.md into question records.
+"""Parse documentation/ontology_eval_set.md into question records.
 
 The eval file has two markdown tables:
   - Questions: | # | Question | Challenge | Expected answer | Naive trap | Ontology nodes that fix it |

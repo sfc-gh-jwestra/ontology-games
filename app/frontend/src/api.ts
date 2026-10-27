@@ -1,6 +1,7 @@
-// Types and API helpers shared by the UI.
+// Types and API helpers shared by the UI. There is no login: every endpoint is local to the backend.
 
 export type Side = "baseline" | "ontology";
+export const SIDES: Side[] = ["baseline", "ontology"];
 
 export interface Question {
   id: number;
@@ -12,29 +13,60 @@ export interface Question {
   reference_sql: string;
 }
 
-export interface Me {
-  user: string;
-  role: string;
-  secondary_roles: string;
-  warehouse: string | null;
-}
-
-export interface Final {
-  text: string;
-  sql: string[];
-  tools: string[];
-  tables: unknown[];
-  ontology_hits: string[];
+/** One tool call in an answer (same shape for Recorded and Live; see agents.parse_response). */
+export interface Step {
+  tool: string | null;
+  type: string | null;
+  sql: string | null;
+  input: string | null;
   status: string | null;
+  rows: number | null;
 }
 
+export type VerdictLabel = "correct" | "partial" | "wrong" | null;
+
+/** An agent's answer plus its trace and (once judged) its score. */
+export interface Answer {
+  text: string;
+  elapsed: number;
+  tokens: { input?: number; output?: number };
+  steps: Step[];
+  tool_calls: number;
+  tool_counts: Record<string, number>;
+  sql: string[];
+  ontology_hits?: string[];
+  score?: number | null;
+  verdict?: VerdictLabel;
+  judge_reason?: string | null;
+}
+
+export interface RecordedResult {
+  id: number;
+  challenge: string;
+  question: string;
+  expected: string;
+  naive_trap: string;
+  headline: string | null;
+  answers: Record<Side, Answer>;
+}
+
+export interface RecordedRun {
+  run_id: string;
+  judge_model: string;
+  pass_threshold: number;
+  role?: string;
+  results: RecordedResult[];
+}
+
+/** Graded verdict from the shared judge (app/backend/judge.py). */
 export interface Verdict {
-  baseline_correct?: boolean;
-  ontology_correct?: boolean;
-  differ?: boolean;
+  baseline_score?: number;
+  ontology_score?: number;
+  baseline_verdict?: VerdictLabel;
+  ontology_verdict?: VerdictLabel;
+  baseline_reason?: string;
+  ontology_reason?: string;
   headline?: string;
-  summary?: string;
-  evidence?: string[];
 }
 
 export interface StreamEvent {
@@ -46,28 +78,77 @@ export interface StreamEvent {
   name?: string;
   sql?: string;
   ms?: number;
-  final?: Final;
+  final?: Answer;
   verdict?: Verdict;
   error?: string;
   compare_id?: string;
 }
 
-export interface Roles {
-  roles: string[];
-  default: string;
+export interface SetupInfo {
+  semantic_views: {
+    fqn: string;
+    name: string;
+    file: string;
+    description: string;
+    tables: { name: string; base: string; description: string }[];
+    imports: string[];
+    relationships: number;
+  }[];
+  agents: { name: string; fqn: string; group: string; file: string; tools: string[]; semantic_views: string[]; yaml: string }[];
+  challenges: { id: string; title: string }[];
+  ontology: {
+    terms: number;
+    relationships: number;
+    domains: { name: string; description: string; terms: number; kinds: Record<string, number> }[];
+  };
+  questions: { id: number; question: string; challenge: string; expected: string }[];
 }
 
-/** Thrown on HTTP 401: the user isn't signed in (or the session expired). */
-export class Unauthorized extends Error {}
+export interface LiveStatus {
+  connected: boolean;
+  connection: string;
+  role: string;
+  warehouse: string;
+}
 
-export function signInUrl(role: string) {
-  return `/oauth/login?role=${encodeURIComponent(role)}`;
+export const AGENT_INFO: Record<Side, { label: string; sublabel: string; color: string }> = {
+  baseline: {
+    label: "Without ontology",
+    sublabel: "GAMING_BASELINE_AGENT: text-to-SQL over SV_GAMING_CROSS_DOMAIN",
+    color: "var(--baseline)",
+  },
+  ontology: {
+    label: "With Business Ontology",
+    sublabel: "GAMING_BON_AGENT: ontology search + the same semantic view",
+    color: "var(--sense)",
+  },
+};
+
+export const TOOL_LABEL: Record<string, string> = {
+  business_ontology: "Ontology search",
+  query_data: "Cortex Analyst",
+  system_execute_sql: "SQL",
+  data_to_chart: "Chart",
+};
+
+/** "C3 imperfect keys" -> 3; anything without a C<n> code sorts last. */
+export function challengeNum(tag: string): number {
+  const m = tag.match(/\bC(\d)\b/);
+  return m ? Number(m[1]) : 9;
+}
+
+/** Sort key: challenge number, then controls after the trap questions, then id. */
+export function byChallenge<T extends { challenge: string; id: number }>(a: T, b: T): number {
+  return (
+    challengeNum(a.challenge) - challengeNum(b.challenge) ||
+    Number(a.challenge.startsWith("control")) - Number(b.challenge.startsWith("control")) ||
+    a.id - b.id
+  );
 }
 
 export async function getJSON<T>(url: string): Promise<T> {
   const r = await fetch(url);
-  if (r.status === 401) throw new Unauthorized(await r.text());
-  if (!r.ok) throw new Error(`${url}: HTTP ${r.status}`);
+  if (!r.ok) throw new Error(`${url}: HTTP ${r.status} ${await r.text()}`);
   return r.json();
 }
 
@@ -83,7 +164,6 @@ export async function streamCompare(
     body: JSON.stringify(body),
     signal,
   });
-  if (r.status === 401) throw new Unauthorized(await r.text());
   if (!r.ok || !r.body) throw new Error(`compare failed: HTTP ${r.status} ${await r.text()}`);
   const reader = r.body.getReader();
   const decoder = new TextDecoder();

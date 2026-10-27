@@ -1,53 +1,34 @@
-"""Verdict on the two agent answers, grounded in the eval set's expected answer.
+"""Graded judge shared by Live mode (main.py) and the batch eval (scripts/batch_eval.py).
 
-Runs one AI_COMPLETE call (structured JSON output, temperature 0) as the signed-in user.
+One AI_COMPLETE call scores both answers against the eval set's expected answer on the same
+0 / 0.33 / 0.67 / 1 scale: amounts within 1% score 1.0,
+within 3% score 0.67, more than 3% off score 0. correct >= 0.67, partial > 0, wrong = 0.
 """
 import json
 
-from sf import Credential, sql_connection
-
 MODEL = "claude-sonnet-4-5"
-MAX_CHARS = 4000
+PASS = 0.67
+MAX_CHARS = 6000
 
-JUDGE_SQL = """
-SELECT AI_COMPLETE(
-  model => %(model)s,
-  prompt => %(prompt)s,
-  model_parameters => {'temperature': 0, 'max_tokens': 1200},
-  response_format => {
-    'type': 'json',
-    'schema': {
-      'type': 'object',
-      'properties': {
-        'baseline_correct': {'type': 'boolean'},
-        'ontology_correct': {'type': 'boolean'},
-        'differ': {'type': 'boolean'},
-        'headline': {'type': 'string'},
-        'summary': {'type': 'string'},
-        'evidence': {'type': 'array', 'items': {'type': 'string'}}
-      },
-      'required': ['baseline_correct', 'ontology_correct', 'differ', 'headline', 'summary', 'evidence']
-    }
-  }
-) AS VERDICT
-"""
-
-PROMPT = """You are grading two analytics agents that answered the same business question over the same data.
-The BASELINE agent only sees a semantic view. The ONTOLOGY agent also searches a Business Ontology of governed
-definitions, synonyms, code mappings and identity rules. Respond in JSON.
-
-Rules:
-- If an EXPECTED ANSWER is given, an agent is correct only if its headline numbers or list match it
-  (currency within $0.01, counts exact, lists same members). Approximate wording like "about $13.2M" is wrong
-  when the expected value differs.
-- Never say the ontology agent is correct unless its answer matches the expected answer. If both are wrong, say so.
-- differ = true when the two agents reach different answers.
-- headline: one sentence verdict, e.g. "The ontology agent is correct; the baseline was naive."
-- summary: 2-4 sentences explaining WHY they differ, citing the specific trap (from NAIVE TRAP) and the concrete
-  thing each agent did in its SQL (joins, filters, codes). Name the ontology nodes that fixed it when relevant.
-- evidence: 2-4 short bullets quoting SQL fragments or numbers from the answers.
-- If there is no expected answer, compare the two answers and explain the difference without declaring correctness
-  beyond what the SQL shows (set both *_correct to false and say "no expected answer").
+PROMPT = """You grade two analytics agents that answered the same business question over the same data.
+BASELINE only sees a semantic view. ONTOLOGY also searches a Business Ontology of governed definitions.
+Score EACH answer independently against the EXPECTED ANSWER. First find the agent's MAIN answer (the headline
+figure, count, name or list it gives as its answer, not alternatives or caveats). Compare every amount to the
+expected amount as a percentage difference: |actual - expected| / expected.
+Use exactly one of these scores:
+- 1.0  correct: every headline amount is within 1% of expected, counts are exact, names and list members match.
+       Extra context is fine if it does not contradict the answer.
+- 0.67 mostly correct: headline amounts are within 3% of expected (but not all within 1%), OR the headline
+       answer is fully correct but a secondary detail (ranking order, breakdown, game count) is wrong or missing.
+- 0.33 partially correct: the expected answer appears only as an alternative or caveat, not as the main answer;
+       or the right items appear inside a wrong list; or some required parts are right and others are wrong.
+- 0.0  wrong: any headline amount is more than 3% from expected, a count or name is wrong, the main answer
+       contradicts the expected answer, or the agent declined to answer.
+A correct name or category with a headline amount more than 3% off is WRONG (0.0), not mostly correct.
+If there is no expected answer, score both 0.0 and explain how the answers differ instead.
+State the percentage difference of each headline amount in your reason.
+Use the SQL to explain what each agent did (joins, filters, codes) and cite the NAIVE TRAP when it applies.
+Respond in JSON.
 
 QUESTION: {question}
 EXPECTED ANSWER: {expected}
@@ -67,6 +48,19 @@ ONTOLOGY SQL:
 {o_sql}
 """
 
+RESPONSE_FORMAT = """{'type': 'json', 'schema': {'type': 'object', 'properties': {
+    'baseline_score': {'type': 'number'}, 'baseline_reason': {'type': 'string'},
+    'ontology_score': {'type': 'number'}, 'ontology_reason': {'type': 'string'},
+    'headline': {'type': 'string'}},
+    'required': ['baseline_score', 'baseline_reason', 'ontology_score', 'ontology_reason', 'headline']}}"""
+
+JUDGE_SQL = f"""SELECT AI_COMPLETE(
+  model => %(model)s,
+  prompt => %(prompt)s,
+  model_parameters => {{'temperature': 0, 'max_tokens': 1500}},
+  response_format => {RESPONSE_FORMAT}
+) AS VERDICT"""
+
 
 def _cut(s: str) -> str:
     return s if len(s) <= MAX_CHARS else s[:MAX_CHARS] + " ...[truncated]"
@@ -79,18 +73,31 @@ def build_prompt(question: dict, baseline: dict, ontology: dict) -> str:
         trap=question.get("naive_trap") or "(none)",
         nodes=question.get("fixing_nodes") or "(none)",
         b_text=_cut(baseline.get("text", "")),
-        b_sql=_cut("\n---\n".join(baseline.get("sql", []))),
+        b_sql=_cut("\n---\n".join(baseline.get("sql", [])) or "(none)"),
         o_text=_cut(ontology.get("text", "")),
-        o_sql=_cut("\n---\n".join(ontology.get("sql", []))),
+        o_sql=_cut("\n---\n".join(ontology.get("sql", [])) or "(none)"),
     )
 
 
-def judge(question: dict, baseline: dict, ontology: dict, cred: Credential) -> dict:
-    prompt = build_prompt(question, baseline, ontology)
-    with sql_connection(cred) as conn:
-        row = conn.cursor().execute(JUDGE_SQL, {"model": MODEL, "prompt": prompt}).fetchone()
-    raw = row[0]
-    verdict = json.loads(raw) if isinstance(raw, str) else raw
-    if isinstance(verdict, dict) and "structured_output" in verdict:
-        verdict = verdict["structured_output"][0]["raw_message"]
-    return verdict
+def parse_verdict(raw) -> dict:
+    v = json.loads(raw) if isinstance(raw, str) else raw
+    if isinstance(v, dict) and "structured_output" in v:
+        v = v["structured_output"][0]["raw_message"]
+    return v
+
+
+def verdict(score):
+    if score is None:
+        return None
+    return "correct" if score >= PASS else ("partial" if score > 0 else "wrong")
+
+
+def judge(question: dict, baseline: dict, ontology: dict) -> dict:
+    """Live mode: score both answers over the shared Live connection."""
+    import sf
+    cur = sf.get_connection().cursor()
+    row = cur.execute(JUDGE_SQL, {"model": MODEL, "prompt": build_prompt(question, baseline, ontology)}).fetchone()
+    v = parse_verdict(row[0])
+    for side in ("baseline", "ontology"):
+        v[f"{side}_verdict"] = verdict(v.get(f"{side}_score"))
+    return v

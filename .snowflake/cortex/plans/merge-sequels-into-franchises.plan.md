@@ -68,7 +68,6 @@ The old `GAME_SEQUELS` is now exactly `SELECT GAME_ID, RELATED_GAME_ID AS SEQUEL
 
 ## Implementation steps
 
-1. **Safety copy:** `CREATE TABLE GAME_CATALOG.BACKUP_GAME_SEQUELS CLONE GAME_CATALOG.GAME_SEQUELS`. Record the row count (39) and `HASH_AGG(*)`. Keep the copy until you approve dropping it.
 
 2. **Add the columns:**
 
@@ -90,7 +89,6 @@ The old `GAME_SEQUELS` is now exactly `SELECT GAME_ID, RELATED_GAME_ID AS SEQUEL
 
    - Regenerate `sql/game_catalog/tables/GAME_FRANCHISES.sql` with `GET_DDL`.
    - Delete `sql/game_catalog/tables/GAME_SEQUELS.sql`.
-   - Add `sql/game_catalog/tables/BACKUP_GAME_SEQUELS.sql`.
 
 7. **Update the add-game skill:**
 
@@ -107,11 +105,9 @@ The old `GAME_SEQUELS` is now exactly `SELECT GAME_ID, RELATED_GAME_ID AS SEQUEL
 
    - Remove `GAME_SEQUELS` from the line-593 table list.
 
-8. **Memory:** note that `GAME_SEQUELS` was merged into `GAME_FRANCHISES` and where the backup is.
 
 ## Verification
 
-- **Lossless:** this check returns 0 rows, both before and after the drop (using the backup): `(SELECT GAME_ID, SEQUEL_OF_GAME_ID, RELATIONSHIP_TYPE FROM BACKUP_GAME_SEQUELS) EXCEPT (SELECT GAME_ID, RELATED_GAME_ID, RELATIONSHIP_TYPE FROM GAME_FRANCHISES WHERE RELATED_GAME_ID IS NOT NULL)` The reverse EXCEPT also returns 0 rows.
 
 - **Counts:** 90 franchise rows. 39 have a link and 51 are `original`.
   - By type: sequel 25, spinoff 5, remake 5, prequel 3, spiritual\_successor 1.

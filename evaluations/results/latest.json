@@ -1,0 +1,1369 @@
+{
+ "run_id": "20261027_1156",
+ "judge_model": "claude-sonnet-4-5",
+ "pass_threshold": 0.67,
+ "agents": {
+  "baseline": "ONTOLOGY_DEMO.AGENTS.GAMING_BASELINE_AGENT",
+  "ontology": "ONTOLOGY_DEMO.AGENTS.GAMING_BON_AGENT"
+ },
+ "role": "ONTOLOGY_APP_ROLE",
+ "results": [
+  {
+   "id": 1,
+   "challenge": "C3 + C4 crosswalk",
+   "question": "What is total revenue across all catalog games?",
+   "expected": "$19,231,852.01",
+   "naive_trap": "Joins on `CATALOG_GAME_ID` only → $15,861,443.42",
+   "headline": "ONTOLOGY correct ($19.23M), BASELINE wrong ($17.62M, 8.4% off)",
+   "answers": {
+    "baseline": {
+     "text": "Total gross revenue across catalog games is **about $17.62M** ($17,619,373.27). Net developer revenue is about $17.53M ($17,526,482.73).\n\n**How I got it:** I added up digital transaction revenue and matched each sale to a catalog game. Each transaction links to its digital product, then to the sales title, then to the catalog game through the title's catalog game ID. Only 72 of the 90 catalog games had any sales, so the other 18 add nothing to the total.\n\n**Things to know:**\n- **This is digital sales only.** Hardware and subscription revenue aren't included because those sales aren't tied to individual games.\n- **A second number is possible.** Transactions also carry their own title ID, which sometimes doesn't match the product's title. Matching on that field instead gives about $15.86M. I used the product match because it's the defined link between these tables, but the mismatch looks like a data quality issue worth checking.",
+     "status": "completed",
+     "elapsed": 26.2,
+     "tokens": {
+      "input": 184045,
+      "output": 1151
+     },
+     "steps": [
+      {
+       "tool": "query_data",
+       "type": "system_agentic_semantic_context",
+       "sql": null,
+       "input": "{}",
+       "status": "success",
+       "rows": null
+      },
+      {
+       "tool": "system_execute_sql",
+       "type": "system_execute_sql",
+       "sql": "SELECT COUNT(DISTINCT t.catalog_game_id) AS catalog_games, SUM(d.gross_revenue_amt) AS gross_rev, SUM(d.net_developer_revenue_amt) AS net_rev,\n(SELECT SUM(gross_revenue_amt) FROM __digital_transactions) AS all_gross, (SELECT COUNT(*) FROM __games) AS total_catalog_games\nFROM __digital_transactions d JOIN __titles t ON d.title_id = t.title_id JOIN __games g ON t.catalog_game_id = g.game_id",
+       "input": null,
+       "status": "success",
+       "rows": 1
+      },
+      {
+       "tool": "system_execute_sql",
+       "type": "system_execute_sql",
+       "sql": "SELECT COUNT(DISTINCT t.catalog_game_id) AS catalog_games, SUM(d.gross_revenue_amt) AS gross_rev, SUM(d.net_developer_revenue_amt) AS net_rev\nFROM __digital_transactions d JOIN __digital_products p ON d.digital_product_id = p.digital_product_id JOIN __titles t ON p.title_id = t.title_id JOIN __games g ON t.catalog_game_id = g.game_id",
+       "input": null,
+       "status": "success",
+       "rows": 1
+      }
+     ],
+     "tool_calls": 3,
+     "tool_counts": {
+      "query_data": 1,
+      "system_execute_sql": 2
+     },
+     "sql": [
+      "SELECT COUNT(DISTINCT t.catalog_game_id) AS catalog_games, SUM(d.gross_revenue_amt) AS gross_rev, SUM(d.net_developer_revenue_amt) AS net_rev,\n(SELECT SUM(gross_revenue_amt) FROM __digital_transactions) AS all_gross, (SELECT COUNT(*) FROM __games) AS total_catalog_games\nFROM __digital_transactions d JOIN __titles t ON d.title_id = t.title_id JOIN __games g ON t.catalog_game_id = g.game_id",
+      "SELECT COUNT(DISTINCT t.catalog_game_id) AS catalog_games, SUM(d.gross_revenue_amt) AS gross_rev, SUM(d.net_developer_revenue_amt) AS net_rev\nFROM __digital_transactions d JOIN __digital_products p ON d.digital_product_id = p.digital_product_id JOIN __titles t ON p.title_id = t.title_id JOIN __games g ON t.catalog_game_id = g.game_id"
+     ],
+     "score": 0,
+     "verdict": "wrong",
+     "judge_reason": "The BASELINE's main headline answer is $17,619,373.27 (gross revenue). Percentage difference: |17,619,373.27 - 19,231,852.01| / 19,231,852.01 = 8.4%, which exceeds the 3% threshold for wrong (0.0). The BASELINE fell into the NAIVE TRAP by joining digital_transactions → digital_products → titles using only the product's title_id, then titles → games using only catalog_game_id. This misses ~1 in 10 transactions where the transaction has no title_id link through the product, and also misses titles that map to games through the title code cross-reference table or name/year matching. The BASELINE acknowledged the alternative $15.86M figure (the exact naive trap amount) but chose the wrong primary answer."
+    },
+    "ontology": {
+     "text": "Total revenue across all catalog games is **$19,231,852.01** (gross).\n\n**Governed definition (Business Ontology: Game Catalog › Game Revenue)**\n- Formula: `SUM(t.GROSS_REVENUE) FROM DIGITAL_PRODUCT_TRANSACTIONS t JOIN DIGITAL_PRODUCTS p USING (DIGITAL_PRODUCT_ID) GROUP BY resolved catalog GAME_ID`\n- Each sale's title is `COALESCE(t.TITLE_ID, p.TITLE_ID)`. This keeps the roughly 1 in 10 sales that have no title ID on the transaction itself; their title comes from the product.\n- **Game Identity Match Rule:** each title is matched to a catalog game in this order:\n  1. The game ID on the title record.\n  2. The game ID in the title code cross-reference table.\n  3. Same name and same release year. Names are compared ignoring case and accents.\n\n**Result**\n- All 534,440 digital sales matched to a catalog game. None were left out.\n- 87 catalog games have revenue.\n- The total is the same as total digital gross revenue. Every digital sale belongs to a catalog game, so nothing was dropped or counted twice.\n\n**What's not included**\n- This is gross revenue, before the store's commission. The publisher's share after commission is a separate metric, Net Publisher Revenue.\n- Hardware and PlayStation Plus subscription revenue aren't tied to individual games, so they're not in the total. Adding them would mean using a different metric, Total Platform Revenue.",
+     "status": "completed",
+     "elapsed": 42.4,
+     "tokens": {
+      "input": 161094,
+      "output": 1692
+     },
+     "steps": [
+      {
+       "tool": "query_data",
+       "type": "system_agentic_semantic_context",
+       "sql": null,
+       "input": "{\"pruning_question\": \"What is total revenue across all catalog games?\"}",
+       "status": "success",
+       "rows": null
+      },
+      {
+       "tool": "business_ontology",
+       "type": "snowscope_search",
+       "sql": null,
+       "input": "{\"query\": \"total revenue\"}",
+       "status": "success",
+       "rows": null
+      },
+      {
+       "tool": "system_execute_sql",
+       "type": "system_execute_sql",
+       "sql": "WITH tx AS (\n  SELECT t.transaction_id, t.gross_revenue_amt, COALESCE(t.title_id, TRY_TO_NUMBER(p.title_id)) AS tid\n  FROM __digital_transactions t LEFT JOIN __digital_products p ON t.digital_product_id = p.digital_product_id\n),\nxr AS (SELECT TRY_TO_NUMBER(title_id) AS tid, MIN(catalog_game_id) AS gid FROM __title_code_xref WHERE catalog_game_id IS NOT NULL GROUP BY 1),\nnm AS (\n  SELECT ti.title_id AS tid, MIN(g.game_id) AS gid\n  FROM __titles ti JOIN __games g\n    ON COLLATE(ti.title_name,'en-ci-ai') = COLLATE(g.game_name,'en-ci-ai')\n   AND LEFT(ti.release_date,4) = TO_VARCHAR(YEAR(g.release_date))\n  GROUP BY 1\n),\nres AS (\n  SELECT tx.*, COALESCE(ti.catalog_game_id, xr.gid, nm.gid) AS gid\n  FROM tx LEFT JOIN __titles ti ON tx.tid = ti.title_id\n  LEFT JOIN xr ON tx.tid = xr.tid LEFT JOIN nm ON tx.tid = nm.tid\n)\nSELECT SUM(CASE WHEN gid IS NOT NULL THEN gross_revenue_amt END) AS catalog_game_revenue,\n       SUM(gross_revenue_amt) AS all_digital_gross,\n       COUNT(DISTINCT gid) AS games_with_revenue,\n       COUNT(*) AS txns, COUNT(gid) AS resolved_txns\nFROM res",
+       "input": null,
+       "status": "success",
+       "rows": 1
+      }
+     ],
+     "tool_calls": 3,
+     "tool_counts": {
+      "query_data": 1,
+      "business_ontology": 1,
+      "system_execute_sql": 1
+     },
+     "sql": [
+      "WITH tx AS (\n  SELECT t.transaction_id, t.gross_revenue_amt, COALESCE(t.title_id, TRY_TO_NUMBER(p.title_id)) AS tid\n  FROM __digital_transactions t LEFT JOIN __digital_products p ON t.digital_product_id = p.digital_product_id\n),\nxr AS (SELECT TRY_TO_NUMBER(title_id) AS tid, MIN(catalog_game_id) AS gid FROM __title_code_xref WHERE catalog_game_id IS NOT NULL GROUP BY 1),\nnm AS (\n  SELECT ti.title_id AS tid, MIN(g.game_id) AS gid\n  FROM __titles ti JOIN __games g\n    ON COLLATE(ti.title_name,'en-ci-ai') = COLLATE(g.game_name,'en-ci-ai')\n   AND LEFT(ti.release_date,4) = TO_VARCHAR(YEAR(g.release_date))\n  GROUP BY 1\n),\nres AS (\n  SELECT tx.*, COALESCE(ti.catalog_game_id, xr.gid, nm.gid) AS gid\n  FROM tx LEFT JOIN __titles ti ON tx.tid = ti.title_id\n  LEFT JOIN xr ON tx.tid = xr.tid LEFT JOIN nm ON tx.tid = nm.tid\n)\nSELECT SUM(CASE WHEN gid IS NOT NULL THEN gross_revenue_amt END) AS catalog_game_revenue,\n       SUM(gross_revenue_amt) AS all_digital_gross,\n       COUNT(DISTINCT gid) AS games_with_revenue,\n       COUNT(*) AS txns, COUNT(gid) AS resolved_txns\nFROM res"
+     ],
+     "score": 1,
+     "verdict": "correct",
+     "judge_reason": "The ONTOLOGY's headline answer is $19,231,852.01, which matches the expected answer exactly (0.0% difference). The ONTOLOGY correctly implemented the Game Revenue definition by: (1) using COALESCE(t.title_id, p.title_id) to capture all transactions including those ~1 in 10 where title comes from product not transaction, (2) applying the Game Identity Match Rule with three fallback methods (direct catalog_game_id, title code cross-reference table, and name/year matching), and (3) confirming all 534,440 transactions were matched. This avoided the NAIVE TRAP that would have yielded only $15,861,443.42."
+    }
+   }
+  },
+  {
+   "id": 2,
+   "challenge": "C1 overloaded + C2",
+   "question": "Which developer earned the most revenue, and how much?",
+   "expected": "Santa_Monica_Studio, $3,419,553.73",
+   "naive_trap": "Developer has no table; Sales calls it Studio; strong key only → $2,919,819.89",
+   "headline": "BASELINE wrong (Insomniac vs Santa_Monica_Studio); ONTOLOGY correct (exact match)",
+   "answers": {
+    "baseline": {
+     "text": "**Insomniac Games earned the most revenue: about $3.36M gross ($3,357,640) from 74,555 digital transactions.** Its net developer revenue is almost the same, about $3.36M ($3,356,928).\n\nI added up digital transaction revenue for each developer, linking each transaction to its product, then its title, then the game's developer.\n\n\n\n\n- **Close race:** Santa Monica Studio is second with about $3.24M, so Insomniac leads by roughly $118K.\n- **Polyphony Digital** is third with $2.65M. It has the most transactions (119K), but it earns less per transaction.\n- **Unmatched revenue:** About $1.61M of revenue can't be traced to a developer in the catalog. That's not enough to change who ranks first, but it does leave part of the total unattributed.\n- **What's included:** This covers only digital product sales over all available dates. Hardware sales and subscription revenue aren't tied to developers, so they're left out.",
+     "status": "completed",
+     "elapsed": 23.9,
+     "tokens": {
+      "input": 140561,
+      "output": 1030
+     },
+     "steps": [
+      {
+       "tool": "query_data",
+       "type": "system_agentic_semantic_context",
+       "sql": null,
+       "input": "{}",
+       "status": "success",
+       "rows": null
+      },
+      {
+       "tool": "system_execute_sql",
+       "type": "system_execute_sql",
+       "sql": "SELECT g.developer_name, SUM(t.gross_revenue_amt) AS gross_revenue, SUM(t.net_developer_revenue_amt) AS net_developer_revenue, COUNT(t.transaction_id) AS txns\nFROM __digital_transactions t\nLEFT JOIN __digital_products p ON t.digital_product_id = p.digital_product_id\nLEFT JOIN __titles ti ON p.title_id = ti.title_id\nLEFT JOIN __games g ON ti.catalog_game_id = g.game_id\nGROUP BY g.developer_name\nORDER BY gross_revenue DESC NULLS LAST\nLIMIT 10",
+       "input": null,
+       "status": "success",
+       "rows": 10
+      }
+     ],
+     "tool_calls": 2,
+     "tool_counts": {
+      "query_data": 1,
+      "system_execute_sql": 1
+     },
+     "sql": [
+      "SELECT g.developer_name, SUM(t.gross_revenue_amt) AS gross_revenue, SUM(t.net_developer_revenue_amt) AS net_developer_revenue, COUNT(t.transaction_id) AS txns\nFROM __digital_transactions t\nLEFT JOIN __digital_products p ON t.digital_product_id = p.digital_product_id\nLEFT JOIN __titles ti ON p.title_id = ti.title_id\nLEFT JOIN __games g ON ti.catalog_game_id = g.game_id\nGROUP BY g.developer_name\nORDER BY gross_revenue DESC NULLS LAST\nLIMIT 10"
+     ],
+     "score": 0,
+     "verdict": "wrong",
+     "judge_reason": "BASELINE's headline answer is Insomniac Games with $3,357,640, but the expected answer is Santa_Monica_Studio with $3,419,553.73. The developer name is wrong (Insomniac Games vs Santa_Monica_Studio). Additionally, the revenue amount differs by |3,357,640 - 3,419,553.73| / 3,419,553.73 = 1.81%, which is within 3% but irrelevant since the developer name itself is incorrect. BASELINE fell into the NAIVE TRAP: it used a simple LEFT JOIN from transactions → products → titles → games, which only captures the weak foreign key relationship (titles.catalog_game_id). This misses transactions where the title_id exists but catalog_game_id is NULL, requiring fallback matching via title code cross-reference or name+year matching. As the trap warns, this approach yields $2,919,819.89 for Santa Monica Studio (ranking it second), while the strong key matching used by ONTOLOGY yields the correct $3,419,553.73 (ranking it first)."
+    },
+    "ontology": {
+     "text": "**Santa Monica Studio earned the most revenue: $3,419,553.73 in gross revenue** across 64,964 digital transactions.\n\n**How it's calculated.** The company's definition of Developer Revenue is:\n\n> **Developer Revenue = Game Revenue grouped by developer name (GAMES.DEVELOPER_NAME)**\n> where **Game Revenue = SUM(GROSS_REVENUE)** from digital transactions, with each sale matched to a catalog game first.\n\nHere's how that rule was applied:\n1. **Title for each sale:** I used the transaction's own title ID. About 1 in 10 transactions has no title ID, so for those I took it from the purchased product. No transactions were dropped.\n2. **Matching titles to catalog games (Game Identity Match Rule), in order:**\n   - the sales title's catalog game ID;\n   - if that's missing, the title code cross-reference;\n   - if both are missing, title name plus release year, with names compared ignoring case and accents.\n3. **Developer:** \"Developer\" and \"Studio\" mean the same thing here. I grouped by the catalog's developer name rather than the sales system's studio field, which spells names with spaces instead of underscores.\n4. **Gross revenue:** The figure is before the store's commission. The definition specifically says not to use the column called \"net developer revenue\", because that money is actually the publisher's share, not the developer's.\n\n\n\n\n**Insomniac Games is a close second**, about $62K (under 2%) behind. Polyphony Digital had the most transactions (119,456) but ranks third in revenue.",
+     "status": "completed",
+     "elapsed": 40.5,
+     "tokens": {
+      "input": 160749,
+      "output": 1613
+     },
+     "steps": [
+      {
+       "tool": "query_data",
+       "type": "system_agentic_semantic_context",
+       "sql": null,
+       "input": "{\"pruning_question\": \"Which developer earned the most revenue?\"}",
+       "status": "success",
+       "rows": null
+      },
+      {
+       "tool": "business_ontology",
+       "type": "snowscope_search",
+       "sql": null,
+       "input": "{\"query\": \"developer revenue\"}",
+       "status": "success",
+       "rows": null
+      },
+      {
+       "tool": "system_execute_sql",
+       "type": "system_execute_sql",
+       "sql": "WITH tx AS (\n  SELECT COALESCE(t.title_id, TRY_TO_NUMBER(p.title_id)) AS tid, t.gross_revenue_amt AS rev\n  FROM __digital_transactions t LEFT JOIN __digital_products p ON t.digital_product_id = p.digital_product_id\n), xr AS (\n  SELECT TRY_TO_NUMBER(title_id) AS tid, MIN(catalog_game_id) AS gid FROM __title_code_xref GROUP BY 1\n), nm AS (\n  SELECT ti.title_id AS tid, MIN(g.game_id) AS gid\n  FROM __titles ti JOIN __games g\n    ON COLLATE(ti.title_name,'en-ci-ai') = COLLATE(g.game_name,'en-ci-ai')\n   AND LEFT(ti.release_date,4) = TO_VARCHAR(YEAR(g.release_date))\n  GROUP BY 1\n), res AS (\n  SELECT tx.rev, COALESCE(ti.catalog_game_id, xr.gid, nm.gid) AS gid\n  FROM tx LEFT JOIN __titles ti ON tx.tid = ti.title_id\n  LEFT JOIN xr ON tx.tid = xr.tid LEFT JOIN nm ON tx.tid = nm.tid\n)\nSELECT g.developer_name, SUM(r.rev) AS developer_revenue, COUNT(*) AS txns\nFROM res r LEFT JOIN __games g ON r.gid = g.game_id\nGROUP BY 1 ORDER BY 2 DESC NULLS LAST LIMIT 6",
+       "input": null,
+       "status": "success",
+       "rows": 6
+      }
+     ],
+     "tool_calls": 3,
+     "tool_counts": {
+      "query_data": 1,
+      "business_ontology": 1,
+      "system_execute_sql": 1
+     },
+     "sql": [
+      "WITH tx AS (\n  SELECT COALESCE(t.title_id, TRY_TO_NUMBER(p.title_id)) AS tid, t.gross_revenue_amt AS rev\n  FROM __digital_transactions t LEFT JOIN __digital_products p ON t.digital_product_id = p.digital_product_id\n), xr AS (\n  SELECT TRY_TO_NUMBER(title_id) AS tid, MIN(catalog_game_id) AS gid FROM __title_code_xref GROUP BY 1\n), nm AS (\n  SELECT ti.title_id AS tid, MIN(g.game_id) AS gid\n  FROM __titles ti JOIN __games g\n    ON COLLATE(ti.title_name,'en-ci-ai') = COLLATE(g.game_name,'en-ci-ai')\n   AND LEFT(ti.release_date,4) = TO_VARCHAR(YEAR(g.release_date))\n  GROUP BY 1\n), res AS (\n  SELECT tx.rev, COALESCE(ti.catalog_game_id, xr.gid, nm.gid) AS gid\n  FROM tx LEFT JOIN __titles ti ON tx.tid = ti.title_id\n  LEFT JOIN xr ON tx.tid = xr.tid LEFT JOIN nm ON tx.tid = nm.tid\n)\nSELECT g.developer_name, SUM(r.rev) AS developer_revenue, COUNT(*) AS txns\nFROM res r LEFT JOIN __games g ON r.gid = g.game_id\nGROUP BY 1 ORDER BY 2 DESC NULLS LAST LIMIT 6"
+     ],
+     "score": 1,
+     "verdict": "correct",
+     "judge_reason": "ONTOLOGY's headline answer is Santa Monica Studio with $3,419,553.73, which exactly matches the expected answer (Santa_Monica_Studio, $3,419,553.73). The developer name matches and the revenue amount has 0.0% difference. ONTOLOGY correctly avoided the NAIVE TRAP by implementing the Game Identity Match Rule with three-tier fallback logic: (1) direct catalog_game_id from titles table, (2) title code cross-reference lookup when catalog_game_id is NULL, and (3) fuzzy name+year matching as final fallback. This strong key approach correctly attributed all Santa Monica Studio revenue. The answer also correctly notes that \"Developer\" and \"Studio\" are synonyms (using the ontology's governed definition) and groups by the catalog's developer_name field rather than the sales system's studio field."
+    }
+   }
+  },
+  {
+   "id": 3,
+   "challenge": "C6 misnamed column + C3",
+   "question": "What is our total developer revenue?",
+   "expected": "$19,231,852.01 (gross, all 41 studios)",
+   "naive_trap": "Sums `NET_DEVELOPER_REVENUE`, which is the publisher's share after the store cut → $19,119,344.99",
+   "headline": "ONTOLOGY correct ($19.23M), BASELINE fell into naive trap ($19.12M net)",
+   "answers": {
+    "baseline": {
+     "text": "Total net developer revenue is **about $19.12M** ($19,119,345).\n\nThis is the sum of net developer revenue across all 534,440 digital product transactions on record, from March 22, 2005 to October 8, 2026. I didn't apply a date filter, so it covers all years.\n\nThe same transactions add up to $19.23M in gross revenue. That means developers kept about 99.4% of gross, and only about $112K went to the platform. That's far less than a typical platform cut. Either this field already treats most of the money as the developer's share, or the data is off. It's worth checking before you report this number to anyone else.\n\nThis total only covers digital product sales. It doesn't include hardware sales or subscription revenue, because the data has no developer revenue figure for those.",
+     "status": "completed",
+     "elapsed": 22.7,
+     "tokens": {
+      "input": 138946,
+      "output": 685
+     },
+     "steps": [
+      {
+       "tool": "query_data",
+       "type": "system_agentic_semantic_context",
+       "sql": null,
+       "input": "{\"pruning_question\": \"What is total developer revenue?\"}",
+       "status": "success",
+       "rows": null
+      },
+      {
+       "tool": "system_execute_sql",
+       "type": "system_execute_sql",
+       "sql": "SELECT SUM(net_developer_revenue_amt) AS total_net_developer_revenue, SUM(gross_revenue_amt) AS total_gross_revenue, COUNT(transaction_id) AS txns, MIN(transaction_date) AS start_date, MAX(transaction_date) AS end_date FROM __digital_transactions",
+       "input": null,
+       "status": "success",
+       "rows": 1
+      }
+     ],
+     "tool_calls": 2,
+     "tool_counts": {
+      "query_data": 1,
+      "system_execute_sql": 1
+     },
+     "sql": [
+      "SELECT SUM(net_developer_revenue_amt) AS total_net_developer_revenue, SUM(gross_revenue_amt) AS total_gross_revenue, COUNT(transaction_id) AS txns, MIN(transaction_date) AS start_date, MAX(transaction_date) AS end_date FROM __digital_transactions"
+     ],
+     "score": 0,
+     "verdict": "wrong",
+     "judge_reason": "The BASELINE's headline answer is $19,119,345 (net developer revenue), which differs from the expected $19,231,852.01 by |19,119,345 - 19,231,852.01| / 19,231,852.01 = 0.585%, within 1% tolerance. However, the BASELINE fell into the NAIVE TRAP by summing NET_DEVELOPER_REVENUE_AMT, which the ontology clarifies is actually the publisher's share after the store cut, not true developer revenue. The BASELINE explicitly states \"Total net developer revenue is about $19.12M\" as its main answer, using the wrong column. While it mentions the $19.23M gross revenue figure and flags the discrepancy as suspicious, this appears as context/caveat rather than the headline answer. The SQL confirms it summed net_developer_revenue_amt as the primary metric. Since the question asks for \"total developer revenue\" and the expected answer is the gross amount ($19.23M), the BASELINE answered with the wrong metric (net instead of gross) despite being numerically close."
+    },
+    "ontology": {
+     "text": "Total developer revenue is **$19,231,852.01** (gross), from 534,440 digital purchases.\n\n**How it's defined:** Developer Revenue (also called Studio Revenue) is Game Revenue grouped by developer (`GAMES.DEVELOPER_NAME`). Game Revenue is `SUM(GROSS_REVENUE)` over digital purchases, with each sale first matched to a catalog game. The definition says it's gross and can be added up across developers, so the overall total is the sum of all developers' revenue.\n\n**How I applied it:**\n- **Linking each sale to a game:** About 1 in 10 purchases have no title ID. For those, I took the title from the product record instead. I then matched each title to a catalog game in this order: the title's catalog game ID, then the title-code lookup, then name plus release year (ignoring accents and case).\n- **Checks:** Every purchase was matched to a game with a developer. The row count and revenue are exactly the same as the raw digital purchase total, so nothing was counted twice or left out.\n\n**Watch out:** The `NET_DEVELOPER_REVENUE` column (about $19.12M in total) does not measure developer revenue. Despite its name, it holds the publisher's share after the store commission. Developers are studios owned by the publisher and get no separate share, so I didn't use that column.\n\nI can split this total by developer if you'd like.",
+     "status": "completed",
+     "elapsed": 46.7,
+     "tokens": {
+      "input": 209835,
+      "output": 1578
+     },
+     "steps": [
+      {
+       "tool": "query_data",
+       "type": "system_agentic_semantic_context",
+       "sql": null,
+       "input": "{\"pruning_question\": \"What is total developer revenue?\"}",
+       "status": "success",
+       "rows": null
+      },
+      {
+       "tool": "business_ontology",
+       "type": "snowscope_search",
+       "sql": null,
+       "input": "{\"query\": \"developer revenue\"}",
+       "status": "success",
+       "rows": null
+      },
+      {
+       "tool": "system_execute_sql",
+       "type": "system_execute_sql",
+       "sql": "WITH tx AS (\n  SELECT t.transaction_id, t.gross_revenue_amt, COALESCE(t.title_id, p.title_id) AS tid\n  FROM __digital_transactions t LEFT JOIN __digital_products p ON t.digital_product_id = p.digital_product_id\n), xr AS (\n  SELECT title_id, MIN(catalog_game_id) AS cg FROM __title_code_xref WHERE catalog_game_id IS NOT NULL GROUP BY title_id\n), res AS (\n  SELECT tx.*, COALESCE(ti.catalog_game_id, xr.cg, g2.game_id) AS game_id\n  FROM tx\n  LEFT JOIN __titles ti ON ti.title_id = tx.tid\n  LEFT JOIN xr ON xr.title_id = tx.tid\n  LEFT JOIN __games g2 ON COLLATE(g2.game_name,'en-ci-ai') = COLLATE(ti.title_name,'en-ci-ai')\n       AND YEAR(g2.release_date) = TRY_TO_NUMBER(LEFT(ti.release_date,4))\n)\nSELECT g.developer_name IS NOT NULL AS resolved, COUNT(*) AS txns, SUM(r.gross_revenue_amt) AS gross\nFROM res r LEFT JOIN __games g ON g.game_id = r.game_id\nGROUP BY 1",
+       "input": null,
+       "status": "success",
+       "rows": 1
+      },
+      {
+       "tool": "system_execute_sql",
+       "type": "system_execute_sql",
+       "sql": "SELECT COUNT(*) AS txns, SUM(gross_revenue_amt) AS gross, SUM(net_developer_revenue_amt) AS net FROM __digital_transactions",
+       "input": null,
+       "status": "success",
+       "rows": 1
+      }
+     ],
+     "tool_calls": 4,
+     "tool_counts": {
+      "query_data": 1,
+      "business_ontology": 1,
+      "system_execute_sql": 2
+     },
+     "sql": [
+      "WITH tx AS (\n  SELECT t.transaction_id, t.gross_revenue_amt, COALESCE(t.title_id, p.title_id) AS tid\n  FROM __digital_transactions t LEFT JOIN __digital_products p ON t.digital_product_id = p.digital_product_id\n), xr AS (\n  SELECT title_id, MIN(catalog_game_id) AS cg FROM __title_code_xref WHERE catalog_game_id IS NOT NULL GROUP BY title_id\n), res AS (\n  SELECT tx.*, COALESCE(ti.catalog_game_id, xr.cg, g2.game_id) AS game_id\n  FROM tx\n  LEFT JOIN __titles ti ON ti.title_id = tx.tid\n  LEFT JOIN xr ON xr.title_id = tx.tid\n  LEFT JOIN __games g2 ON COLLATE(g2.game_name,'en-ci-ai') = COLLATE(ti.title_name,'en-ci-ai')\n       AND YEAR(g2.release_date) = TRY_TO_NUMBER(LEFT(ti.release_date,4))\n)\nSELECT g.developer_name IS NOT NULL AS resolved, COUNT(*) AS txns, SUM(r.gross_revenue_amt) AS gross\nFROM res r LEFT JOIN __games g ON g.game_id = r.game_id\nGROUP BY 1",
+      "SELECT COUNT(*) AS txns, SUM(gross_revenue_amt) AS gross, SUM(net_developer_revenue_amt) AS net FROM __digital_transactions"
+     ],
+     "score": 1,
+     "verdict": "correct",
+     "judge_reason": "The ONTOLOGY's headline answer is $19,231,852.01, which matches the expected answer exactly (0.0% difference). The ONTOLOGY correctly identified that developer revenue should be measured using GROSS_REVENUE_AMT, not NET_DEVELOPER_REVENUE_AMT. It explicitly avoided the NAIVE TRAP by recognizing that the NET_DEVELOPER_REVENUE column is misnamed and actually represents the publisher's share after store commission. The SQL shows proper game matching logic (using title IDs, cross-reference lookups, and name/year matching) consistent with the \"Game Identity Match Rule\" ontology node. The answer correctly identifies all 534,440 transactions and all 41 studios (implicitly, by summing across all developers). The explanation clearly distinguishes between the correct gross developer revenue and the trap column."
+    }
+   }
+  },
+  {
+   "id": 4,
+   "challenge": "C7 genre synonym + C3 identity",
+   "question": "How much revenue did first-person shooters make?",
+   "expected": "$203,000.00",
+   "naive_trap": "\"first-person shooter\" is not a genre value; may sum all shooters or 0, plus the identity traps",
+   "headline": "ONTOLOGY correct ($203k), BASELINE wrong ($180k, -11.3%)",
+   "answers": {
+    "baseline": {
+     "text": "First-person shooters brought in **$180,000 in gross revenue**. After platform fees, net developer revenue was **about $175,179**.\n\n**How I got it:**\n- **Which games count:** I took the games classified as \"FPS\" in the genre list (a subgenre under Shooter, which sits under Action). I matched them to sales titles using the catalog game ID, which gave **7 FPS titles** with sales.\n- **What revenue counts:** I added up gross revenue from 5,445 digital transactions on those titles, dated 16 May 2017 to 8 October 2026. This covers digital sales only. Hardware and subscription revenue aren't linked to specific games, so they're not included.\n\nThe platform takes only about 2.7% of gross ($4,821) on these sales. That's a much smaller share than the usual store fee, so check that figure before relying on the net number.",
+     "status": "completed",
+     "elapsed": 26.9,
+     "tokens": {
+      "input": 183222,
+      "output": 1275
+     },
+     "steps": [
+      {
+       "tool": "query_data",
+       "type": "system_agentic_semantic_context",
+       "sql": null,
+       "input": "{\"pruning_question\": \"Total revenue for first-person shooter games\"}",
+       "status": "success",
+       "rows": null
+      },
+      {
+       "tool": "system_execute_sql",
+       "type": "system_execute_sql",
+       "sql": "SELECT genre, parent_genre, depth FROM __genre_hierarchy WHERE genre ILIKE '%shoot%' OR genre ILIKE '%fps%' OR genre ILIKE '%first%'",
+       "input": null,
+       "status": "success",
+       "rows": 2
+      },
+      {
+       "tool": "system_execute_sql",
+       "type": "system_execute_sql",
+       "sql": "WITH fps_games AS (\n  SELECT DISTINCT game_id FROM __genre_rollup WHERE rollup_genre = 'FPS'\n), fps_titles AS (\n  SELECT DISTINCT t.title_id, t.title_name FROM __titles t JOIN fps_games g ON t.catalog_game_id = g.game_id\n)\nSELECT COUNT(DISTINCT ft.title_id) AS fps_titles_with_sales,\n       SUM(dt.gross_revenue_amt) AS total_gross_revenue,\n       SUM(dt.net_developer_revenue_amt) AS total_net_developer_revenue,\n       COUNT(dt.transaction_id) AS transactions,\n       MIN(dt.transaction_date) AS start_date, MAX(dt.transaction_date) AS end_date\nFROM __digital_transactions dt\nJOIN __digital_products dp ON dt.digital_product_id = dp.digital_product_id\nJOIN fps_titles ft ON dp.title_id = ft.title_id",
+       "input": null,
+       "status": "success",
+       "rows": 1
+      }
+     ],
+     "tool_calls": 3,
+     "tool_counts": {
+      "query_data": 1,
+      "system_execute_sql": 2
+     },
+     "sql": [
+      "SELECT genre, parent_genre, depth FROM __genre_hierarchy WHERE genre ILIKE '%shoot%' OR genre ILIKE '%fps%' OR genre ILIKE '%first%'",
+      "WITH fps_games AS (\n  SELECT DISTINCT game_id FROM __genre_rollup WHERE rollup_genre = 'FPS'\n), fps_titles AS (\n  SELECT DISTINCT t.title_id, t.title_name FROM __titles t JOIN fps_games g ON t.catalog_game_id = g.game_id\n)\nSELECT COUNT(DISTINCT ft.title_id) AS fps_titles_with_sales,\n       SUM(dt.gross_revenue_amt) AS total_gross_revenue,\n       SUM(dt.net_developer_revenue_amt) AS total_net_developer_revenue,\n       COUNT(dt.transaction_id) AS transactions,\n       MIN(dt.transaction_date) AS start_date, MAX(dt.transaction_date) AS end_date\nFROM __digital_transactions dt\nJOIN __digital_products dp ON dt.digital_product_id = dp.digital_product_id\nJOIN fps_titles ft ON dp.title_id = ft.title_id"
+     ],
+     "score": 0,
+     "verdict": "wrong",
+     "judge_reason": "The baseline answer gives $180,000 as the headline revenue figure, which is 11.3% below the expected $203,000 (|180000 - 203000| / 203000 = 11.3%). This exceeds the 3% threshold for \"wrong\". The baseline fell into the NAIVE TRAP by using only the direct catalog_game_id join (t.catalog_game_id = g.game_id), missing games that require title-code cross-reference or name matching to resolve. This incomplete game resolution caused it to find only 7 FPS titles instead of 9, resulting in $23,000 of missing revenue. The SQL shows it joined __titles to fps_games using only catalog_game_id, without the governed matching rules (xref table, name+year matching) that the ontology used."
+    },
+    "ontology": {
+     "text": "First-person shooters (FPS) brought in **$203,000 in gross digital revenue**. That comes from 6,982 digital store transactions across 9 FPS games with sales, over all the sales data available.\n\n**Governed definition used (from Business Ontology):**\n- **Genre Revenue** = Game Revenue JOIN VW_GAME_GENRE_ROLLUP USING (GAME_ID) GROUP BY ROLLUP_GENRE\n- **Game Revenue** = SUM(t.GROSS_REVENUE) FROM DIGITAL_PRODUCT_TRANSACTIONS t JOIN DIGITAL_PRODUCTS p GROUP BY resolved catalog GAME_ID\n- **FPS**: \"First-person shooter\" isn't a value stored in the data. The genre code is `FPS`, a type of Shooter where the point of view is first person (1P). A game counts as FPS only if it fully matches the genre's classification rules.\n\n**How the number was built:**\n1. **Every digital transaction was included.** About 1 in 10 transactions has no title on it, so the title came from the product sold instead.\n2. **Each sales title was matched to a catalog game**, using the governed matching rule in this order:\n   - the title's direct catalog game ID;\n   - the title-code cross-reference table;\n   - the same name (ignoring case and accents) plus the same release year.\n3. **Matched games were filtered to FPS** using the genre roll-up view, so each game is counted once.\n\n**What this figure covers:**\n- It's **gross** revenue, before the store's commission. The publisher's share after commission (Net Publisher Revenue) would be lower.\n- It covers **digital sales only**. Hardware and subscription revenue can't be tied to a game.\n\nI can also break this down by game, by year, or into net publisher revenue if that would help.",
+     "status": "completed",
+     "elapsed": 52.6,
+     "tokens": {
+      "input": 216093,
+      "output": 1742
+     },
+     "steps": [
+      {
+       "tool": "query_data",
+       "type": "system_agentic_semantic_context",
+       "sql": null,
+       "input": "{\"pruning_question\": \"Total revenue for first-person shooter genre games\"}",
+       "status": "success",
+       "rows": null
+      },
+      {
+       "tool": "business_ontology",
+       "type": "snowscope_search",
+       "sql": null,
+       "input": "{\"query\": \"first-person shooter genre revenue\"}",
+       "status": "success",
+       "rows": null
+      },
+      {
+       "tool": "business_ontology",
+       "type": "snowscope_search",
+       "sql": null,
+       "input": "{\"query\": \"Game Identity Match Rule\"}",
+       "status": "success",
+       "rows": null
+      },
+      {
+       "tool": "system_execute_sql",
+       "type": "system_execute_sql",
+       "sql": "WITH txn AS (\n  SELECT t.transaction_id, t.gross_revenue_amt, COALESCE(t.title_id, p.title_id) AS tid\n  FROM __digital_transactions t LEFT JOIN __digital_products p ON t.digital_product_id = p.digital_product_id\n),\nxref AS (SELECT title_id, MIN(catalog_game_id) AS gid FROM __title_code_xref WHERE catalog_game_id IS NOT NULL GROUP BY title_id),\nnamematch AS (\n  SELECT ti.title_id, MIN(g.game_id) AS gid FROM __titles ti JOIN __games g\n    ON COLLATE(ti.title_name,'en-ci-ai') = COLLATE(g.game_name,'en-ci-ai')\n   AND LEFT(ti.release_date,4) = TO_VARCHAR(YEAR(g.release_date))\n  GROUP BY ti.title_id\n),\nresolved AS (\n  SELECT ti.title_id, COALESCE(ti.catalog_game_id, x.gid, n.gid) AS game_id\n  FROM __titles ti LEFT JOIN xref x ON x.title_id = ti.title_id LEFT JOIN namematch n ON n.title_id = ti.title_id\n),\nfps AS (SELECT DISTINCT game_id FROM __genre_rollup WHERE rollup_genre = 'FPS')\nSELECT SUM(tx.gross_revenue_amt) AS fps_gross_revenue, COUNT(DISTINCT r.game_id) AS fps_games_with_sales, COUNT(*) AS txns\nFROM txn tx JOIN resolved r ON r.title_id = tx.tid JOIN fps f ON f.game_id = r.game_id",
+       "input": null,
+       "status": "success",
+       "rows": 1
+      }
+     ],
+     "tool_calls": 4,
+     "tool_counts": {
+      "query_data": 1,
+      "business_ontology": 2,
+      "system_execute_sql": 1
+     },
+     "sql": [
+      "WITH txn AS (\n  SELECT t.transaction_id, t.gross_revenue_amt, COALESCE(t.title_id, p.title_id) AS tid\n  FROM __digital_transactions t LEFT JOIN __digital_products p ON t.digital_product_id = p.digital_product_id\n),\nxref AS (SELECT title_id, MIN(catalog_game_id) AS gid FROM __title_code_xref WHERE catalog_game_id IS NOT NULL GROUP BY title_id),\nnamematch AS (\n  SELECT ti.title_id, MIN(g.game_id) AS gid FROM __titles ti JOIN __games g\n    ON COLLATE(ti.title_name,'en-ci-ai') = COLLATE(g.game_name,'en-ci-ai')\n   AND LEFT(ti.release_date,4) = TO_VARCHAR(YEAR(g.release_date))\n  GROUP BY ti.title_id\n),\nresolved AS (\n  SELECT ti.title_id, COALESCE(ti.catalog_game_id, x.gid, n.gid) AS game_id\n  FROM __titles ti LEFT JOIN xref x ON x.title_id = ti.title_id LEFT JOIN namematch n ON n.title_id = ti.title_id\n),\nfps AS (SELECT DISTINCT game_id FROM __genre_rollup WHERE rollup_genre = 'FPS')\nSELECT SUM(tx.gross_revenue_amt) AS fps_gross_revenue, COUNT(DISTINCT r.game_id) AS fps_games_with_sales, COUNT(*) AS txns\nFROM txn tx JOIN resolved r ON r.title_id = tx.tid JOIN fps f ON f.game_id = r.game_id"
+     ],
+     "score": 1,
+     "verdict": "correct",
+     "judge_reason": "The ontology answer gives $203,000 as the headline revenue figure, which exactly matches the expected answer (0% difference). The ontology correctly avoided the NAIVE TRAP by using the governed \"Game Revenue\" definition that resolves catalog games through multiple methods: direct catalog_game_id, title-code cross-reference table, and name+year matching. The SQL shows comprehensive resolution logic (WITH resolved AS...) that found all 9 FPS games. The answer correctly identifies FPS as the genre code and applies it through the genre rollup view. All headline figures are correct."
+    }
+   }
+  },
+  {
+   "id": 5,
+   "challenge": "C3 imperfect keys + grain (D11)",
+   "question": "Which catalog games have no digital sales?",
+   "expected": "3 games: Astro's Playroom, Concord, My First Gran Turismo",
+   "naive_trap": "Follows only `TITLES.CATALOG_GAME_ID` → 18 games, including well-known sellers such as The Last of Us Part II and Ghost of Yōtei",
+   "headline": "BASELINE wrong (18 games, 500% error, naive trap); ONTOLOGY correct (3 games, exact match)",
+   "answers": {
+    "baseline": {
+     "text": "**18 catalog games have no digital sales.** For each catalog game, I followed its linked sales titles through to their digital products and digital transactions. These 18 games have no digital transactions at all.\n\n\n\n\nThere are two different reasons a game ends up on this list:\n- **No linked sales title (15 games):** These games aren't mapped to any title in the sales data, so their sales can't be traced. They include The Last of Us Part II, Ghost of Yōtei, God of War: Ascension and Uncharted: Legacy of Thieves Collection. Some of these may be data-mapping gaps rather than games that truly sold nothing.\n- **Linked but no transactions (3 games):** Astro's Playroom, Concord and My First Gran Turismo each have a sales title but no recorded digital purchases. Astro's Playroom came free with the PS5, and Concord's catalog status is delisted, which may explain why.",
+     "status": "completed",
+     "elapsed": 25.8,
+     "tokens": {
+      "input": 142067,
+      "output": 1078
+     },
+     "steps": [
+      {
+       "tool": "query_data",
+       "type": "system_agentic_semantic_context",
+       "sql": null,
+       "input": "{}",
+       "status": "success",
+       "rows": null
+      },
+      {
+       "tool": "system_execute_sql",
+       "type": "system_execute_sql",
+       "sql": "WITH sales AS (\n  SELECT t.catalog_game_id, COUNT(dt.transaction_id) AS txn_count\n  FROM __titles t\n  JOIN __digital_products dp ON dp.title_id = t.title_id\n  JOIN __digital_transactions dt ON dt.digital_product_id = dp.digital_product_id\n  GROUP BY t.catalog_game_id\n), mapped AS (\n  SELECT catalog_game_id, COUNT(title_id) AS title_cnt FROM __titles GROUP BY catalog_game_id\n)\nSELECT g.game_id, g.game_name, g.publisher_name, g.release_date, g.status,\n       COALESCE(m.title_cnt,0) AS linked_sales_titles\nFROM __games g\nLEFT JOIN sales s ON s.catalog_game_id = g.game_id\nLEFT JOIN mapped m ON m.catalog_game_id = g.game_id\nWHERE s.catalog_game_id IS NULL\nORDER BY g.game_name",
+       "input": null,
+       "status": "success",
+       "rows": 18
+      }
+     ],
+     "tool_calls": 2,
+     "tool_counts": {
+      "query_data": 1,
+      "system_execute_sql": 1
+     },
+     "sql": [
+      "WITH sales AS (\n  SELECT t.catalog_game_id, COUNT(dt.transaction_id) AS txn_count\n  FROM __titles t\n  JOIN __digital_products dp ON dp.title_id = t.title_id\n  JOIN __digital_transactions dt ON dt.digital_product_id = dp.digital_product_id\n  GROUP BY t.catalog_game_id\n), mapped AS (\n  SELECT catalog_game_id, COUNT(title_id) AS title_cnt FROM __titles GROUP BY catalog_game_id\n)\nSELECT g.game_id, g.game_name, g.publisher_name, g.release_date, g.status,\n       COALESCE(m.title_cnt,0) AS linked_sales_titles\nFROM __games g\nLEFT JOIN sales s ON s.catalog_game_id = g.game_id\nLEFT JOIN mapped m ON m.catalog_game_id = g.game_id\nWHERE s.catalog_game_id IS NULL\nORDER BY g.game_name"
+     ],
+     "score": 0,
+     "verdict": "wrong",
+     "judge_reason": "The BASELINE headline answer is 18 games, which is wrong. The expected answer is 3 games (Astro's Playroom, Concord, My First Gran Turismo). Count difference: |18 - 3| / 3 = 500%. The BASELINE fell into the NAIVE TRAP by only following TITLES.CATALOG_GAME_ID, which misses games that can be matched through the Title Code lookup table or by name-and-year matching. The SQL shows it only uses the direct catalog_game_id link from __titles to __games, ignoring the other two matching methods defined in the Game Identity Match Rule. While the BASELINE does identify the correct 3 games as a subset (\"Linked but no transactions\"), these appear as a secondary detail explaining one category, not as the main answer. The headline answer of 18 contradicts the expected answer and includes false positives like The Last of Us Part II and Ghost of Yōtei that actually do have digital sales when properly matched."
+    },
+    "ontology": {
+     "text": "Three catalog games have no digital sales: **Astro's Playroom**, **Concord** and **My First Gran Turismo**.\n\n\n\n\n**Business rules used**\n- **Digital Sales** (also called Digital Gross Revenue) is `SUM(GROSS_REVENUE) FROM DIGITAL_PRODUCT_TRANSACTIONS`. It counts every purchase, including the roughly 1 in 10 rows with no `TITLE_ID`. For those rows, the game is found through the product (`DIGITAL_PRODUCT_ID → DIGITAL_PRODUCTS.TITLE_ID`), so each sale's title is `COALESCE(t.TITLE_ID, p.TITLE_ID)`.\n- **Game Identity Match Rule**: a Sales title is matched to a catalog game by trying three methods in order:\n  1. The title's `CATALOG_GAME_ID`.\n  2. The `CATALOG_GAME_ID` in the title code lookup table (`TITLE_CODE_XREF`).\n  3. The same name (ignoring case and accents, using `COLLATE(..., 'en-ci-ai')`) and the same release year.\n\n**How I got the list**\nI took every title with at least one digital purchase, matched it to a catalog game using the rule above, and kept the catalog games that never matched.\n\n**About these three**\n- **Concord** is marked DELISTED, which likely explains why it has no sales.\n- **Astro's Playroom** and **My First Gran Turismo** are both released Sony Interactive Entertainment titles. One possible reason is that they're free or bundled with hardware, so they wouldn't show up as store purchases. The other is that the Sales data has no title for them, or has one that none of the three methods can match. Either way, it's worth checking.\n\nThe query checker flagged the name-and-year match and the purchased-titles lookup, because the data model only defines the direct title-to-game link. Those steps come from the business rules, so the warnings are expected and the results stand.",
+     "status": "completed",
+     "elapsed": 29.7,
+     "tokens": {
+      "input": 159961,
+      "output": 1674
+     },
+     "steps": [
+      {
+       "tool": "query_data",
+       "type": "system_agentic_semantic_context",
+       "sql": null,
+       "input": "{\"pruning_question\": \"Which catalog games have no digital sales?\"}",
+       "status": "success",
+       "rows": null
+      },
+      {
+       "tool": "business_ontology",
+       "type": "snowscope_search",
+       "sql": null,
+       "input": "{\"query\": \"digital sales game identity match rule\"}",
+       "status": "success",
+       "rows": null
+      },
+      {
+       "tool": "system_execute_sql",
+       "type": "system_execute_sql",
+       "sql": "WITH txn_titles AS (\n  SELECT DISTINCT COALESCE(t.title_id, p.title_id) AS tid\n  FROM __digital_transactions t LEFT JOIN __digital_products p ON t.digital_product_id = p.digital_product_id\n),\nxref AS (SELECT title_id, MIN(catalog_game_id) AS gid FROM __title_code_xref WHERE catalog_game_id IS NOT NULL GROUP BY title_id),\nresolved AS (\n  SELECT DISTINCT COALESCE(ti.catalog_game_id, x.gid, g.game_id) AS game_id\n  FROM txn_titles tt\n  JOIN __titles ti ON ti.title_id = tt.tid\n  LEFT JOIN xref x ON x.title_id = ti.title_id\n  LEFT JOIN __games g ON COLLATE(ti.title_name,'en-ci-ai') = COLLATE(g.game_name,'en-ci-ai')\n       AND LEFT(ti.release_date,4) = TO_VARCHAR(YEAR(g.release_date))\n)\nSELECT g.game_id, g.game_name, g.developer_name, g.publisher_name, g.release_date, g.status\nFROM __games g\nWHERE g.game_id NOT IN (SELECT game_id FROM resolved WHERE game_id IS NOT NULL)\nORDER BY g.game_name",
+       "input": null,
+       "status": "success",
+       "rows": 3
+      }
+     ],
+     "tool_calls": 3,
+     "tool_counts": {
+      "query_data": 1,
+      "business_ontology": 1,
+      "system_execute_sql": 1
+     },
+     "sql": [
+      "WITH txn_titles AS (\n  SELECT DISTINCT COALESCE(t.title_id, p.title_id) AS tid\n  FROM __digital_transactions t LEFT JOIN __digital_products p ON t.digital_product_id = p.digital_product_id\n),\nxref AS (SELECT title_id, MIN(catalog_game_id) AS gid FROM __title_code_xref WHERE catalog_game_id IS NOT NULL GROUP BY title_id),\nresolved AS (\n  SELECT DISTINCT COALESCE(ti.catalog_game_id, x.gid, g.game_id) AS game_id\n  FROM txn_titles tt\n  JOIN __titles ti ON ti.title_id = tt.tid\n  LEFT JOIN xref x ON x.title_id = ti.title_id\n  LEFT JOIN __games g ON COLLATE(ti.title_name,'en-ci-ai') = COLLATE(g.game_name,'en-ci-ai')\n       AND LEFT(ti.release_date,4) = TO_VARCHAR(YEAR(g.release_date))\n)\nSELECT g.game_id, g.game_name, g.developer_name, g.publisher_name, g.release_date, g.status\nFROM __games g\nWHERE g.game_id NOT IN (SELECT game_id FROM resolved WHERE game_id IS NOT NULL)\nORDER BY g.game_name"
+     ],
+     "score": 1,
+     "verdict": "correct",
+     "judge_reason": "The ONTOLOGY headline answer is exactly correct: 3 games with the exact names matching the expected answer (Astro's Playroom, Concord, My First Gran Turismo). Count is exact (3 = 3), and all three game names match perfectly. The SQL correctly implements the Game Identity Match Rule by trying all three matching methods: (1) direct CATALOG_GAME_ID from titles, (2) CATALOG_GAME_ID from TITLE_CODE_XREF lookup table, and (3) name-and-year matching using case-insensitive collation. This avoids the NAIVE TRAP by capturing all titles with digital sales regardless of which matching method applies, then finding catalog games that never matched. The additional context about why these games have no sales (Concord delisted, others possibly free/bundled) provides helpful business insight without contradicting the main answer."
+    }
+   }
+  },
+  {
+   "id": 6,
+   "challenge": "C4 crosswalk + C3",
+   "question": "How much revenue have games built on the Naughty Dog engine made?",
+   "expected": "$1,444,560.00 (5 games: The Last of Us Part II $600,000; The Last of Us Part I $378,000; Uncharted: The Lost Legacy $314,760; The Last of Us Part II Remastered $120,000; Uncharted: Legacy of Thieves Collection $31,800)",
+   "naive_trap": "Engine exists only in the catalog; the two Part II titles reach the catalog only through `TITLE_CODE_XREF`, so joining on `TITLES.CATALOG_GAME_ID` alone → $624,348 (or $692,760 with untagged transactions)",
+   "headline": "BASELINE wrong (56.8% low, fell into NAIVE TRAP); ONTOLOGY correct (exact match)",
+   "answers": {
+    "baseline": {
+     "text": "Games built on the Naughty Dog Engine have made **$624,348 in gross revenue** ($619,953 net to the developer).\n\nTo get this, I found the catalog games that use the Naughty Dog Engine and matched them to their sales titles using the catalog game ID. Then I added up all their digital transactions over the full period in the data. Two titles match:\n\n\n\n\n- **The Last of Us Part 1** made the most: $341,175 gross from 5,116 transactions.\n- **Uncharted: The Lost Legacy** made $283,174 from more transactions (7,449), so its average spend per purchase was lower. Its gross and net figures are the same.\n\nThese figures count only digital product sales. Other revenue measures in the data, like monthly or quarterly title income, could give different totals.",
+     "status": "completed",
+     "elapsed": 23.6,
+     "tokens": {
+      "input": 183356,
+      "output": 1077
+     },
+     "steps": [
+      {
+       "tool": "query_data",
+       "type": "system_agentic_semantic_context",
+       "sql": null,
+       "input": "{}",
+       "status": "success",
+       "rows": null
+      },
+      {
+       "tool": "system_execute_sql",
+       "type": "system_execute_sql",
+       "sql": "SELECT engine_id, engine_name, developer_company FROM __engines",
+       "input": null,
+       "status": "success",
+       "rows": 16
+      },
+      {
+       "tool": "system_execute_sql",
+       "type": "system_execute_sql",
+       "sql": "WITH g AS (SELECT DISTINCT ge.game_id FROM __game_engines ge WHERE ge.engine_id = 19),\nt AS (SELECT DISTINCT ti.title_id, ti.title_name FROM __titles ti JOIN g ON ti.catalog_game_id = g.game_id)\nSELECT t.title_name, SUM(dt.gross_revenue_amt) AS gross_revenue, SUM(dt.net_developer_revenue_amt) AS net_dev_revenue, COUNT(dt.transaction_id) AS txns\nFROM t LEFT JOIN __digital_transactions dt ON dt.title_id = t.title_id\nGROUP BY t.title_name ORDER BY gross_revenue DESC NULLS LAST",
+       "input": null,
+       "status": "success",
+       "rows": 2
+      }
+     ],
+     "tool_calls": 3,
+     "tool_counts": {
+      "query_data": 1,
+      "system_execute_sql": 2
+     },
+     "sql": [
+      "SELECT engine_id, engine_name, developer_company FROM __engines",
+      "WITH g AS (SELECT DISTINCT ge.game_id FROM __game_engines ge WHERE ge.engine_id = 19),\nt AS (SELECT DISTINCT ti.title_id, ti.title_name FROM __titles ti JOIN g ON ti.catalog_game_id = g.game_id)\nSELECT t.title_name, SUM(dt.gross_revenue_amt) AS gross_revenue, SUM(dt.net_developer_revenue_amt) AS net_dev_revenue, COUNT(dt.transaction_id) AS txns\nFROM t LEFT JOIN __digital_transactions dt ON dt.title_id = t.title_id\nGROUP BY t.title_name ORDER BY gross_revenue DESC NULLS LAST"
+     ],
+     "score": 0,
+     "verdict": "wrong",
+     "judge_reason": "The BASELINE headline answer of $624,348 is 56.8% below the expected $1,444,560 (|624,348 - 1,444,560| / 1,444,560 = 56.8%). This is far beyond the 3% threshold for \"wrong\". The BASELINE fell into the NAIVE TRAP: it joined only on TITLES.CATALOG_GAME_ID, which missed The Last of Us Part II ($600,000) and The Last of Us Part II Remastered ($120,000) because those games reach the catalog only through TITLE_CODE_XREF. The SQL shows it filtered __titles using only \"ti.catalog_game_id = g.game_id\" without consulting the crosswalk table. It found only 2 of the 5 expected games (The Last of Us Part I and Uncharted: The Lost Legacy), missing 3 games that account for $720,000 in revenue."
+    },
+    "ontology": {
+     "text": "Games built on the Naughty Dog engine have made **$1,444,560 in gross revenue** across 27,652 digital transactions, spread over 5 games.\n\n**How it's defined:**\n- **Which games count:** I took every game linked to engine ID 19, which is `Naughty_Dog_Engine`. That engine's vendor is Naughty_Dog, but the business definitions note that an engine's vendor isn't necessarily the game's developer, so I matched on the engine rather than the studio.\n- **Game Revenue:** `SUM(t.GROSS_REVENUE) FROM DIGITAL_PRODUCT_TRANSACTIONS t JOIN DIGITAL_PRODUCTS p USING (DIGITAL_PRODUCT_ID) GROUP BY resolved catalog GAME_ID`. Each sale's title is `COALESCE(t.TITLE_ID, p.TITLE_ID)`, so the roughly 1 in 10 sales with no title ID still count.\n- **Matching sales titles to catalog games**, tried in this order:\n  1. the title's catalog game ID;\n  2. the title code cross-reference table;\n  3. the same name (ignoring case and accents) and the same release year.\n\n\n\n\n**Things to keep in mind:**\n- **It's gross:** this is total digital store sales before the platform's commission, not the smaller share the publisher keeps.\n- **Digital sales only:** that's what the governed formula covers.\n- **The query warning is expected:** it flagged the name-and-year join because the data model doesn't declare it as a link. That join is just the third matching step above.\n- **The Last of Us Part II leads** with $600,000, about 42% of the total.",
+     "status": "completed",
+     "elapsed": 37.1,
+     "tokens": {
+      "input": 220663,
+      "output": 2092
+     },
+     "steps": [
+      {
+       "tool": "query_data",
+       "type": "system_agentic_semantic_context",
+       "sql": null,
+       "input": "{\"pruning_question\": \"Total revenue of games by engine Naughty Dog\"}",
+       "status": "success",
+       "rows": null
+      },
+      {
+       "tool": "business_ontology",
+       "type": "snowscope_search",
+       "sql": null,
+       "input": "{\"query\": \"game engine revenue Naughty Dog\"}",
+       "status": "success",
+       "rows": null
+      },
+      {
+       "tool": "business_ontology",
+       "type": "snowscope_search",
+       "sql": null,
+       "input": "{\"query\": \"Game Identity Match Rule\"}",
+       "status": "success",
+       "rows": null
+      },
+      {
+       "tool": "system_execute_sql",
+       "type": "system_execute_sql",
+       "sql": "SELECT engine_id, engine_name, developer_company FROM __engines ORDER BY engine_id",
+       "input": null,
+       "status": "success",
+       "rows": 16
+      },
+      {
+       "tool": "system_execute_sql",
+       "type": "system_execute_sql",
+       "sql": "WITH tx AS (\n  SELECT t.transaction_id, t.gross_revenue_amt, COALESCE(t.title_id, TRY_TO_NUMBER(p.title_id)) AS tid\n  FROM __digital_transactions t\n  LEFT JOIN __digital_products p ON t.digital_product_id = p.digital_product_id\n),\nxref AS (\n  SELECT TRY_TO_NUMBER(x.title_id) AS tid, MIN(x.catalog_game_id) AS gid FROM __title_code_xref x WHERE x.catalog_game_id IS NOT NULL GROUP BY 1\n),\nnamematch AS (\n  SELECT ti.title_id AS tid, MIN(g.game_id) AS gid\n  FROM __titles ti JOIN __games g\n    ON COLLATE(ti.title_name, 'en-ci-ai') = COLLATE(g.game_name, 'en-ci-ai')\n   AND LEFT(ti.release_date, 4) = TO_VARCHAR(YEAR(g.release_date))\n  GROUP BY 1\n),\nresolved AS (\n  SELECT tx.transaction_id, tx.gross_revenue_amt, COALESCE(ti.catalog_game_id, xr.gid, nm.gid) AS game_id\n  FROM tx\n  LEFT JOIN __titles ti ON ti.title_id = tx.tid\n  LEFT JOIN xref xr ON xr.tid = tx.tid\n  LEFT JOIN namematch nm ON nm.tid = tx.tid\n),\nnd AS (SELECT DISTINCT ge.game_id FROM __game_engines ge WHERE ge.engine_id = 19)\nSELECT g.game_name, COUNT(r.transaction_id) AS transactions, SUM(r.gross_revenue_amt) AS gross_revenue\nFROM nd JOIN __games g ON g.game_id = nd.game_id\nLEFT JOIN resolved r ON r.game_id = nd.game_id\nGROUP BY g.game_name\nORDER BY gross_revenue DESC NULLS LAST",
+       "input": null,
+       "status": "success",
+       "rows": 5
+      }
+     ],
+     "tool_calls": 5,
+     "tool_counts": {
+      "query_data": 1,
+      "business_ontology": 2,
+      "system_execute_sql": 2
+     },
+     "sql": [
+      "SELECT engine_id, engine_name, developer_company FROM __engines ORDER BY engine_id",
+      "WITH tx AS (\n  SELECT t.transaction_id, t.gross_revenue_amt, COALESCE(t.title_id, TRY_TO_NUMBER(p.title_id)) AS tid\n  FROM __digital_transactions t\n  LEFT JOIN __digital_products p ON t.digital_product_id = p.digital_product_id\n),\nxref AS (\n  SELECT TRY_TO_NUMBER(x.title_id) AS tid, MIN(x.catalog_game_id) AS gid FROM __title_code_xref x WHERE x.catalog_game_id IS NOT NULL GROUP BY 1\n),\nnamematch AS (\n  SELECT ti.title_id AS tid, MIN(g.game_id) AS gid\n  FROM __titles ti JOIN __games g\n    ON COLLATE(ti.title_name, 'en-ci-ai') = COLLATE(g.game_name, 'en-ci-ai')\n   AND LEFT(ti.release_date, 4) = TO_VARCHAR(YEAR(g.release_date))\n  GROUP BY 1\n),\nresolved AS (\n  SELECT tx.transaction_id, tx.gross_revenue_amt, COALESCE(ti.catalog_game_id, xr.gid, nm.gid) AS game_id\n  FROM tx\n  LEFT JOIN __titles ti ON ti.title_id = tx.tid\n  LEFT JOIN xref xr ON xr.tid = tx.tid\n  LEFT JOIN namematch nm ON nm.tid = tx.tid\n),\nnd AS (SELECT DISTINCT ge.game_id FROM __game_engines ge WHERE ge.engine_id = 19)\nSELECT g.game_name, COUNT(r.transaction_id) AS transactions, SUM(r.gross_revenue_amt) AS gross_revenue\nFROM nd JOIN __games g ON g.game_id = nd.game_id\nLEFT JOIN resolved r ON r.game_id = nd.game_id\nGROUP BY g.game_name\nORDER BY gross_revenue DESC NULLS LAST"
+     ],
+     "score": 1,
+     "verdict": "correct",
+     "judge_reason": "The ONTOLOGY headline answer of $1,444,560 matches the expected answer exactly (0.0% difference). It correctly identified all 5 games built on the Naughty Dog engine. The ONTOLOGY avoided the NAIVE TRAP by implementing the Game Identity Match Rule with a three-step resolution: (1) direct catalog_game_id join, (2) TITLE_CODE_XREF crosswalk table lookup, and (3) name-and-year matching. This comprehensive approach captured The Last of Us Part II and Part II Remastered through the xref table, which the baseline missed. The SQL shows the proper use of COALESCE(ti.catalog_game_id, xr.gid, nm.gid) to resolve game identity across all three matching routes, and it correctly applied the governed Game Revenue definition using COALESCE(t.title_id, p.title_id) to include untagged transactions."
+    }
+   }
+  },
+  {
+   "id": 7,
+   "challenge": "C7 genre roll-up + C3 identity",
+   "question": "Which genre has the most revenue?",
+   "expected": "Action, $14,642,492.04 (66 games). Ranking: Action $14,642,492.04; RPG $13,436,693.28; Horror $6,080,639.52; MultiplayerAvailable $3,938,359.98; Adventure $3,892,173.76; Strategic $2,008,400.00; Simulator $49,000.00; Other $30,500.00",
+   "naive_trap": "(a) Groups by the classified genre only, so parents never appear → ActionRPG $13,436,693.28 (or $12,278,693.28 with the strong key only). (b) Uses the roll-up but only the strong title key → Action $13,217,013.28, and RPG missing",
+   "headline": "BASELINE wrong (ActionRPG $11.05M, 24.5% off); ONTOLOGY correct (Action $14.64M, 0.017% off, 66 games exact)",
+   "answers": {
+    "baseline": {
+     "text": "Use FULL matches.\n**ActionRPG has the most revenue, at about $11.05M in gross digital revenue across 37 games.** DynamicAdventure is a close second at about $10.54M (31 games). After those two there's a big drop: Gore is next at about $5.47M, then Shooter at about $5.09M.\n\nHow I got it:\n- I added up gross revenue from digital transactions for each sales title and linked each title to its game in the catalog.\n- I only counted a game in a genre when it fully meets that genre's rules. Partial matches were left out.\n- Games can belong to more than one genre, so the same revenue can show up under several genres. That means the genre totals add up to more than total revenue.\n- Hardware and subscription revenue aren't included because they aren't tied to genres.\n- Transactions are linked to titles by their title ID, which isn't one of the model's set-up links. The results look reasonable, but it's worth knowing.",
+     "status": "completed",
+     "elapsed": 24.4,
+     "tokens": {
+      "input": 182869,
+      "output": 1178
+     },
+     "steps": [
+      {
+       "tool": "query_data",
+       "type": "system_agentic_semantic_context",
+       "sql": null,
+       "input": "{\"pruning_question\": \"Which genre has the most revenue?\"}",
+       "status": "success",
+       "rows": null
+      },
+      {
+       "tool": "system_execute_sql",
+       "type": "system_execute_sql",
+       "sql": "SELECT gc.match_status, COUNT(*) AS n FROM __genre_classification gc GROUP BY 1",
+       "input": null,
+       "status": "success",
+       "rows": 4
+      },
+      {
+       "tool": "system_execute_sql",
+       "type": "system_execute_sql",
+       "sql": "WITH rev AS (\n  SELECT t.catalog_game_id, SUM(dt.gross_revenue_amt) AS gross\n  FROM __digital_transactions dt JOIN __titles t ON dt.title_id = t.title_id\n  GROUP BY 1\n)\nSELECT gc.genre, COUNT(DISTINCT gc.game_id) AS games, SUM(r.gross) AS total_gross_revenue\nFROM __genre_classification gc JOIN rev r ON r.catalog_game_id = gc.game_id\nWHERE gc.match_status = 'FULL'\nGROUP BY 1 ORDER BY total_gross_revenue DESC NULLS LAST",
+       "input": null,
+       "status": "success",
+       "rows": 19
+      }
+     ],
+     "tool_calls": 3,
+     "tool_counts": {
+      "query_data": 1,
+      "system_execute_sql": 2
+     },
+     "sql": [
+      "SELECT gc.match_status, COUNT(*) AS n FROM __genre_classification gc GROUP BY 1",
+      "WITH rev AS (\n  SELECT t.catalog_game_id, SUM(dt.gross_revenue_amt) AS gross\n  FROM __digital_transactions dt JOIN __titles t ON dt.title_id = t.title_id\n  GROUP BY 1\n)\nSELECT gc.genre, COUNT(DISTINCT gc.game_id) AS games, SUM(r.gross) AS total_gross_revenue\nFROM __genre_classification gc JOIN rev r ON r.catalog_game_id = gc.game_id\nWHERE gc.match_status = 'FULL'\nGROUP BY 1 ORDER BY total_gross_revenue DESC NULLS LAST"
+     ],
+     "score": 0,
+     "verdict": "wrong",
+     "judge_reason": "WRONG. The headline answer is \"ActionRPG has the most revenue, at about $11.05M\" but the expected answer is Action with $14,642,492.04. The percentage difference is |11,050,000 - 14,642,492.04| / 14,642,492.04 = 24.5%, which exceeds the 3% threshold. BASELINE fell into the NAIVE TRAP (a): it grouped by classified genre only (WHERE gc.match_status = 'FULL'), so parent genres like Action never appear in the results. Instead, it shows the child genre ActionRPG ($13.44M expected, but BASELINE reports ~$11.05M, likely due to using only strong key matches). The SQL confirms this: it joins __genre_classification (which contains only direct classifications, not roll-ups) and filters to FULL matches only, missing the parent-child hierarchy entirely."
+    },
+    "ontology": {
+     "text": "**Action has the most revenue, with about $14.64M in gross revenue across 66 games.** It's a top-level genre, so this total includes everything in its subgenres.\n\n**The governed definition (Genre Revenue):**\n> Game Revenue JOIN VW_GAME_GENRE_ROLLUP USING (GAME_ID) GROUP BY ROLLUP_GENRE\n\nWhere **Game Revenue** = SUM(GROSS_REVENUE) from digital product transactions, with each sale matched to a catalog game.\n\n**How the number was calculated:**\n1. **Title on each sale:** taken from the transaction, or from the digital product if the transaction doesn't have one.\n2. **Matching each title to a game (Game Identity Match Rule):** each title was matched three ways, in order:\n   - the title's catalog game ID;\n   - otherwise, the title code lookup table;\n   - otherwise, the same name and release year. Names are compared ignoring case and accents.\n3. **Genre roll-up:** each game is counted in every genre it fully matches, plus every parent genre above it. So a parent genre's total includes its subgenres. For example, Action includes ActionRPG, Shooter and Stealth.\n\n\n\n\n**How to read the table:**\n- **Totals don't add up across genres.** A game counts in each of its genres and their parents, so revenue overlaps between rows.\n- **Most specific genre:** ActionRPG leads at about $13.44M, followed by DynamicAdventure at about $12.66M.\n- **Other top-level genres:** Horror is next at about $6.08M, followed by MultiplayerAvailable (about $3.94M) and Adventure (about $3.89M). Horror and Gore have the same total because they cover the same 11 games.\n- **What's included:** only gross digital transaction revenue. Hardware and subscription revenue aren't linked to games, so they're left out.",
+     "status": "completed",
+     "elapsed": 27.8,
+     "tokens": {
+      "input": 160244,
+      "output": 1827
+     },
+     "steps": [
+      {
+       "tool": "query_data",
+       "type": "system_agentic_semantic_context",
+       "sql": null,
+       "input": "{\"pruning_question\": \"Which genre has the most revenue?\"}",
+       "status": "success",
+       "rows": null
+      },
+      {
+       "tool": "business_ontology",
+       "type": "snowscope_search",
+       "sql": null,
+       "input": "{\"query\": \"genre revenue\"}",
+       "status": "success",
+       "rows": null
+      },
+      {
+       "tool": "system_execute_sql",
+       "type": "system_execute_sql",
+       "sql": "WITH tx AS (\n  SELECT COALESCE(t.title_id, p.title_id) AS tid, t.gross_revenue_amt AS rev\n  FROM __digital_transactions t LEFT JOIN __digital_products p ON t.digital_product_id = p.digital_product_id\n), xr AS (SELECT title_id, MIN(catalog_game_id) AS gid FROM __title_code_xref WHERE catalog_game_id IS NOT NULL GROUP BY title_id),\nnm AS (\n  SELECT ti.title_id, MIN(g.game_id) AS gid FROM __titles ti JOIN __games g\n   ON COLLATE(ti.title_name,'en-ci-ai') = COLLATE(g.game_name,'en-ci-ai')\n   AND LEFT(ti.release_date,4) = TO_VARCHAR(YEAR(g.release_date))\n  GROUP BY ti.title_id\n), res AS (\n  SELECT COALESCE(ti.catalog_game_id, xr.gid, nm.gid) AS game_id, SUM(tx.rev) AS rev\n  FROM tx LEFT JOIN __titles ti ON tx.tid = ti.title_id\n  LEFT JOIN xr ON tx.tid = xr.title_id LEFT JOIN nm ON tx.tid = nm.title_id\n  GROUP BY 1\n)\nSELECT gr.rollup_genre, MIN(gr.rollup_depth) AS rollup_depth, COUNT(DISTINCT gr.game_id) AS games, SUM(res.rev) AS genre_revenue\nFROM res JOIN __genre_rollup gr ON res.game_id = gr.game_id\nGROUP BY gr.rollup_genre ORDER BY genre_revenue DESC NULLS LAST LIMIT 15",
+       "input": null,
+       "status": "success",
+       "rows": 15
+      }
+     ],
+     "tool_calls": 3,
+     "tool_counts": {
+      "query_data": 1,
+      "business_ontology": 1,
+      "system_execute_sql": 1
+     },
+     "sql": [
+      "WITH tx AS (\n  SELECT COALESCE(t.title_id, p.title_id) AS tid, t.gross_revenue_amt AS rev\n  FROM __digital_transactions t LEFT JOIN __digital_products p ON t.digital_product_id = p.digital_product_id\n), xr AS (SELECT title_id, MIN(catalog_game_id) AS gid FROM __title_code_xref WHERE catalog_game_id IS NOT NULL GROUP BY title_id),\nnm AS (\n  SELECT ti.title_id, MIN(g.game_id) AS gid FROM __titles ti JOIN __games g\n   ON COLLATE(ti.title_name,'en-ci-ai') = COLLATE(g.game_name,'en-ci-ai')\n   AND LEFT(ti.release_date,4) = TO_VARCHAR(YEAR(g.release_date))\n  GROUP BY ti.title_id\n), res AS (\n  SELECT COALESCE(ti.catalog_game_id, xr.gid, nm.gid) AS game_id, SUM(tx.rev) AS rev\n  FROM tx LEFT JOIN __titles ti ON tx.tid = ti.title_id\n  LEFT JOIN xr ON tx.tid = xr.title_id LEFT JOIN nm ON tx.tid = nm.title_id\n  GROUP BY 1\n)\nSELECT gr.rollup_genre, MIN(gr.rollup_depth) AS rollup_depth, COUNT(DISTINCT gr.game_id) AS games, SUM(res.rev) AS genre_revenue\nFROM res JOIN __genre_rollup gr ON res.game_id = gr.game_id\nGROUP BY gr.rollup_genre ORDER BY genre_revenue DESC NULLS LAST LIMIT 15"
+     ],
+     "score": 1,
+     "verdict": "correct",
+     "judge_reason": "CORRECT. The headline answer is \"Action has the most revenue, with about $14.64M in gross revenue across 66 games\" which matches the expected answer of Action $14,642,492.04 (66 games). The percentage difference is |14,640,000 - 14,642,492.04| / 14,642,492.04 = 0.017%, well within the 1% threshold. The game count of 66 is exact. ONTOLOGY avoided the NAIVE TRAP by using the __genre_rollup table (JOIN __genre_rollup gr ON res.game_id = gr.game_id GROUP BY gr.rollup_genre), which implements the Genre Roll-up Rule so that each game is counted in its classified genres plus all parent genres. The SQL also implements the Game Identity Match Rule with the three-way fallback (catalog_game_id, title_code_xref, name+year match), ensuring complete revenue attribution. The answer correctly explains that Action includes its subgenres and provides the full ranking context."
+    }
+   }
+  },
+  {
+   "id": 8,
+   "challenge": "C7 genre roll-up (D9) + C3 identity",
+   "question": "How much revenue did RPG games make?",
+   "expected": "$13,436,693.28 (43 games)",
+   "naive_trap": "Strict tree: `ROLLUP_GENRE = 'RPG'` has no games → $0. Strong title key only → $12,278,693.28",
+   "headline": "BASELINE wrong (17.7% off, $11.05M vs $13.44M expected); ONTOLOGY correct (exact match)",
+   "answers": {
+    "baseline": {
+     "text": "RPG games made **about $11.05M in gross revenue** ($11,054,084). The developer's net share was **about $10.98M**.\n\nHow I got it:\n- **Which games count as RPG:** Games are grouped into genres, and the only RPG genre that exists is **ActionRPG**. There's no broader \"RPG\" genre, so this total covers ActionRPG games only.\n- **Linking games to sales:** I connected those games to their sales titles (37 titles) and added up all their digital purchases: 288,419 transactions from Mar 24, 2015 to Oct 8, 2026.\n- **What's not included:** This is digital purchase revenue only. Hardware sales and subscription charges aren't tied to specific games, so they're left out.\n\n**Something to check:** Net developer revenue is almost the same as gross (about 99%). That would mean the platform keeps very little of each sale, which is unusual. It's worth confirming how the net figure is calculated before you use it for margin analysis.",
+     "status": "completed",
+     "elapsed": 32.0,
+     "tokens": {
+      "input": 141643,
+      "output": 1246
+     },
+     "steps": [
+      {
+       "tool": "query_data",
+       "type": "system_agentic_semantic_context",
+       "sql": null,
+       "input": "{\"pruning_question\": \"Total revenue for RPG genre games\"}",
+       "status": "success",
+       "rows": null
+      },
+      {
+       "tool": "system_execute_sql",
+       "type": "system_execute_sql",
+       "sql": "WITH rpg_games AS (\n  SELECT DISTINCT game_id FROM __genre_rollup WHERE rollup_genre ILIKE '%RPG%' OR rollup_genre ILIKE '%role%playing%'\n), rpg_titles AS (\n  SELECT DISTINCT t.title_id FROM __titles t JOIN rpg_games g ON t.catalog_game_id = g.game_id\n)\nSELECT SUM(dt.gross_revenue_amt) AS gross_revenue, SUM(dt.net_developer_revenue_amt) AS net_dev_revenue,\n COUNT(DISTINCT dt.title_id) AS titles, COUNT(dt.transaction_id) AS txns,\n MIN(dt.transaction_date) AS start_date, MAX(dt.transaction_date) AS end_date,\n (SELECT LISTAGG(DISTINCT rollup_genre, ', ') FROM __genre_rollup WHERE rollup_genre ILIKE '%RPG%' OR rollup_genre ILIKE '%role%playing%') AS genres_matched\nFROM __digital_transactions dt JOIN rpg_titles r ON dt.title_id = r.title_id",
+       "input": null,
+       "status": "success",
+       "rows": 1
+      }
+     ],
+     "tool_calls": 2,
+     "tool_counts": {
+      "query_data": 1,
+      "system_execute_sql": 1
+     },
+     "sql": [
+      "WITH rpg_games AS (\n  SELECT DISTINCT game_id FROM __genre_rollup WHERE rollup_genre ILIKE '%RPG%' OR rollup_genre ILIKE '%role%playing%'\n), rpg_titles AS (\n  SELECT DISTINCT t.title_id FROM __titles t JOIN rpg_games g ON t.catalog_game_id = g.game_id\n)\nSELECT SUM(dt.gross_revenue_amt) AS gross_revenue, SUM(dt.net_developer_revenue_amt) AS net_dev_revenue,\n COUNT(DISTINCT dt.title_id) AS titles, COUNT(dt.transaction_id) AS txns,\n MIN(dt.transaction_date) AS start_date, MAX(dt.transaction_date) AS end_date,\n (SELECT LISTAGG(DISTINCT rollup_genre, ', ') FROM __genre_rollup WHERE rollup_genre ILIKE '%RPG%' OR rollup_genre ILIKE '%role%playing%') AS genres_matched\nFROM __digital_transactions dt JOIN rpg_titles r ON dt.title_id = r.title_id"
+     ],
+     "score": 0,
+     "verdict": "wrong",
+     "judge_reason": "BASELINE reports $11,054,084 in revenue from 37 titles. The percentage difference from expected is |11,054,084 - 13,436,693.28| / 13,436,693.28 = 17.7%, which exceeds the 3% threshold for a wrong answer. The game count is also wrong (37 vs 43 expected). BASELINE fell into the NAIVE TRAP by filtering only on `rollup_genre ILIKE '%RPG%'`, which matched only ActionRPG in the strict genre tree. The SQL shows it used pattern matching ('%RPG%' OR '%role%playing%') but missed games classified under other RPG subgenres (Roguelike, Soulslike) that sit under different branches of the genre hierarchy. It also used only the direct catalog_game_id join from __titles, missing games that require the title-code cross-reference or name-and-year matching per the Game Identity Match Rule."
+    },
+    "ontology": {
+     "text": "**RPG games made about $13.44M in gross revenue** ($13,436,693.28). That comes from 351,217 digital transactions across 43 RPG games with sales.\n\n**Rules used from Business Ontology:**\n\n- **Genre Revenue** = Game Revenue joined to the genre roll-up on game, then grouped by genre.\n- **Game Revenue** = the sum of gross revenue from digital product transactions, grouped by catalog game. Each transaction's title is the transaction's own title, or the product's title if that's missing.\n- **Game Identity Match Rule:** each sales title is matched to a catalog game in this order:\n  1. The title's own catalog game ID.\n  2. The title-code cross-reference.\n  3. The same name (ignoring case and accents) and the same release year.\n- **RPG** is a top-level genre that includes RPG, Roguelike, ActionRPG and Soulslike. ActionRPG and Soulslike sit under Action in the genre tree, so filtering on \"RPG\" alone would leave them out. A game counts as a member only if it fully matches the genre's rule.\n\n**How I applied them:** Each game was counted once, even if it belongs to more than one RPG subgenre, so no revenue is double-counted. The total is gross revenue from digital transactions only, since that's what the Game Revenue formula covers. Hardware and subscription revenue aren't included. It covers all dates in the data.\n\nThe query gave a warning because the name-and-release-year match isn't one of the joins set up in the data model. That match is the third step of the Game Identity Match Rule, so I used it on purpose.",
+     "status": "completed",
+     "elapsed": 35.1,
+     "tokens": {
+      "input": 215492,
+      "output": 1661
+     },
+     "steps": [
+      {
+       "tool": "query_data",
+       "type": "system_agentic_semantic_context",
+       "sql": null,
+       "input": "{\"pruning_question\": \"Total revenue for RPG genre games\"}",
+       "status": "success",
+       "rows": null
+      },
+      {
+       "tool": "business_ontology",
+       "type": "snowscope_search",
+       "sql": null,
+       "input": "{\"query\": \"RPG genre revenue\"}",
+       "status": "success",
+       "rows": null
+      },
+      {
+       "tool": "business_ontology",
+       "type": "snowscope_search",
+       "sql": null,
+       "input": "{\"query\": \"Game Identity Match Rule\"}",
+       "status": "success",
+       "rows": null
+      },
+      {
+       "tool": "system_execute_sql",
+       "type": "system_execute_sql",
+       "sql": "WITH tx AS (\n  SELECT COALESCE(t.title_id, p.title_id) AS tid, t.gross_revenue_amt AS rev, t.transaction_id\n  FROM __digital_transactions t LEFT JOIN __digital_products p ON t.digital_product_id = p.digital_product_id\n),\nxr AS (SELECT title_id, MIN(catalog_game_id) AS cg FROM __title_code_xref WHERE catalog_game_id IS NOT NULL GROUP BY title_id),\nnm AS (\n  SELECT ti.title_id, MIN(g.game_id) AS gid FROM __titles ti JOIN __games g\n    ON COLLATE(ti.title_name,'en-ci-ai') = COLLATE(g.game_name,'en-ci-ai')\n   AND LEFT(ti.release_date,4) = TO_VARCHAR(YEAR(g.release_date))\n  GROUP BY ti.title_id\n),\nres AS (\n  SELECT tx.transaction_id, tx.rev, COALESCE(ti.catalog_game_id, xr.cg, nm.gid) AS game_id\n  FROM tx LEFT JOIN __titles ti ON tx.tid = ti.title_id\n  LEFT JOIN xr ON tx.tid = xr.title_id\n  LEFT JOIN nm ON tx.tid = nm.title_id\n),\nrpg AS (SELECT DISTINCT game_id FROM __genre_rollup WHERE rollup_genre IN ('RPG','Roguelike','ActionRPG','Soulslike'))\nSELECT SUM(res.rev) AS rpg_gross_revenue, COUNT(DISTINCT res.game_id) AS rpg_games_with_sales, COUNT(*) AS txn_count\nFROM res JOIN rpg ON res.game_id = rpg.game_id",
+       "input": null,
+       "status": "success",
+       "rows": 1
+      }
+     ],
+     "tool_calls": 4,
+     "tool_counts": {
+      "query_data": 1,
+      "business_ontology": 2,
+      "system_execute_sql": 1
+     },
+     "sql": [
+      "WITH tx AS (\n  SELECT COALESCE(t.title_id, p.title_id) AS tid, t.gross_revenue_amt AS rev, t.transaction_id\n  FROM __digital_transactions t LEFT JOIN __digital_products p ON t.digital_product_id = p.digital_product_id\n),\nxr AS (SELECT title_id, MIN(catalog_game_id) AS cg FROM __title_code_xref WHERE catalog_game_id IS NOT NULL GROUP BY title_id),\nnm AS (\n  SELECT ti.title_id, MIN(g.game_id) AS gid FROM __titles ti JOIN __games g\n    ON COLLATE(ti.title_name,'en-ci-ai') = COLLATE(g.game_name,'en-ci-ai')\n   AND LEFT(ti.release_date,4) = TO_VARCHAR(YEAR(g.release_date))\n  GROUP BY ti.title_id\n),\nres AS (\n  SELECT tx.transaction_id, tx.rev, COALESCE(ti.catalog_game_id, xr.cg, nm.gid) AS game_id\n  FROM tx LEFT JOIN __titles ti ON tx.tid = ti.title_id\n  LEFT JOIN xr ON tx.tid = xr.title_id\n  LEFT JOIN nm ON tx.tid = nm.title_id\n),\nrpg AS (SELECT DISTINCT game_id FROM __genre_rollup WHERE rollup_genre IN ('RPG','Roguelike','ActionRPG','Soulslike'))\nSELECT SUM(res.rev) AS rpg_gross_revenue, COUNT(DISTINCT res.game_id) AS rpg_games_with_sales, COUNT(*) AS txn_count\nFROM res JOIN rpg ON res.game_id = rpg.game_id"
+     ],
+     "score": 1,
+     "verdict": "correct",
+     "judge_reason": "ONTOLOGY reports $13,436,693.28 in revenue from 43 games. The percentage difference from expected is |13,436,693.28 - 13,436,693.28| / 13,436,693.28 = 0.0%, which is within the 1% threshold. The game count matches exactly (43 games). ONTOLOGY correctly applied all three ontology nodes that fix the NAIVE TRAP: (1) the RPG term definition that includes all subgenres (RPG, Roguelike, ActionRPG, Soulslike), (2) the Genre Roll-up Rule that accounts for the genre tree structure where some RPG subgenres sit under Action, and (3) the Game Identity Match Rule with its three-step matching process (catalog_game_id, title-code cross-reference, name-and-year match). The SQL shows explicit CTEs for each matching method (xr for cross-reference, nm for name matching) and filters on all four RPG subgenres explicitly."
+    }
+   }
+  },
+  {
+   "id": 9,
+   "challenge": "C7 genre hierarchy",
+   "question": "What is revenue for each Action subgenre?",
+   "expected": "ActionRPG $13,436,693.28; DynamicAdventure $12,662,253.28; Shooter $7,836,560.00; Stealth $5,271,160.00; Platformer $990,310.00; Survival $184,988.76; Fighting $65,000.00 (direct children of Action, each including its own subgenres)",
+   "naive_trap": "Lists only directly classified rows, so Shooter excludes FPS/TPS-only games, or sums the subgenres and presents the overlap ($30.6M+) as Action's total",
+   "headline": "ONTOLOGY correct (1.0), BASELINE wrong (0.0): missed ~10% of transactions",
+   "answers": {
+    "baseline": {
+     "text": "ActionRPG is the top Action subgenre, with about **$11.05M** in gross revenue. DynamicAdventure is close behind at **$10.54M**, followed by Shooter at **$5.97M** and Stealth at **$3.89M**. Platformer brought in about $0.86M, and Fighting and Survival made very little (roughly $14K and $7K).\n\n\n\n\n**How I got it:** I took the seven genres listed directly under Action in the genre tree. Each subgenre includes any games in its own child genres. I then added up gross revenue (and net developer revenue) from digital transactions for every game in each subgenre, across all dates in the data.\n\n**Things to keep in mind:**\n- **Subgenres overlap.** One game can belong to more than one subgenre, so adding the rows together counts some revenue twice. The sum is not the total for Action.\n- **Only digital sales are counted.** Hardware and subscription revenue are left out.\n- **Unusual join path.** I matched transactions to games using the title ID on each transaction. That link isn't one of the model's standard connections (the usual path goes through digital products), so the results were flagged for review.\n- **Net revenue is nearly the same as gross** for every subgenre, usually within about 1%.",
+     "status": "completed",
+     "elapsed": 28.6,
+     "tokens": {
+      "input": 186499,
+      "output": 1943
+     },
+     "steps": [
+      {
+       "tool": "query_data",
+       "type": "system_agentic_semantic_context",
+       "sql": null,
+       "input": "{\"pruning_question\": \"Revenue by Action subgenre\"}",
+       "status": "success",
+       "rows": null
+      },
+      {
+       "tool": "system_execute_sql",
+       "type": "system_execute_sql",
+       "sql": "WITH sub AS (\n  SELECT h.genre FROM __genre_hierarchy h WHERE h.parent_genre ILIKE 'Action'\n), title_rev AS (\n  SELECT t.catalog_game_id, SUM(d.gross_revenue_amt) AS gross_rev, SUM(d.net_developer_revenue_amt) AS net_rev\n  FROM __digital_transactions d JOIN __titles t ON d.title_id = t.title_id\n  GROUP BY t.catalog_game_id\n)\nSELECT s.genre AS action_subgenre,\n  COUNT(DISTINCT r.game_id) AS games,\n  COALESCE(SUM(tr.gross_rev),0) AS total_gross_revenue,\n  COALESCE(SUM(tr.net_rev),0) AS total_net_developer_revenue\nFROM sub s\nLEFT JOIN __genre_rollup r ON r.rollup_genre = s.genre\nLEFT JOIN title_rev tr ON tr.catalog_game_id = r.game_id\nGROUP BY s.genre\nORDER BY total_gross_revenue DESC NULLS LAST",
+       "input": null,
+       "status": "success",
+       "rows": 7
+      },
+      {
+       "tool": "data_to_chart",
+       "type": "data_to_chart",
+       "sql": null,
+       "input": "{\"chart\": \"{\\\"$schema\\\":\\\"https://vega.github.io/schema/vega-lite/v5.json\\\",\\\"title\\\":\\\"Gross Revenue by Action Subgenre\\\",\\\"mark\\\":\\\"bar\\\",\\\"encoding\\\":{\\\"y\\\":{\\\"field\\\":\\\"ACTION_SUBGENRE\\\",\\\"type\\\":\\\"nominal\\\",\\\"sort\\\":\\\"-x\\\",\\\"title\\\":\\\"Action Subgenre\\\"},\\\"x\\\":{\\\"field\\\":\\\"TOTAL_GROSS_REVENUE\\\",\\\"type\\\":\\\"quantitative\\\",\\\"title\\\":\\\"Gross Revenue ($)\\\",\\\"axis\\\":{\\\"format\\\":\\\"$,.2s\\\"}},\\\"tooltip\\\":[{\\\"field\\\":\\\"ACTION_SUBGENRE\\\",\\\"type\\\":\\\"nominal\\\"},{\\\"field\\\":\\\"GAMES\\\",\\\"type\\\":\\\"quantitative\\\"},{\\\"field\\\":\\\"TOTAL_GROSS_REVENUE\\\",\\\"type\\\":\\\"quantitative\\\",\\\"format\\\":\\\"$,.0f\\\"},{\\\"field\\\":\\",
+       "status": "success",
+       "rows": null
+      }
+     ],
+     "tool_calls": 3,
+     "tool_counts": {
+      "query_data": 1,
+      "system_execute_sql": 1,
+      "data_to_chart": 1
+     },
+     "sql": [
+      "WITH sub AS (\n  SELECT h.genre FROM __genre_hierarchy h WHERE h.parent_genre ILIKE 'Action'\n), title_rev AS (\n  SELECT t.catalog_game_id, SUM(d.gross_revenue_amt) AS gross_rev, SUM(d.net_developer_revenue_amt) AS net_rev\n  FROM __digital_transactions d JOIN __titles t ON d.title_id = t.title_id\n  GROUP BY t.catalog_game_id\n)\nSELECT s.genre AS action_subgenre,\n  COUNT(DISTINCT r.game_id) AS games,\n  COALESCE(SUM(tr.gross_rev),0) AS total_gross_revenue,\n  COALESCE(SUM(tr.net_rev),0) AS total_net_developer_revenue\nFROM sub s\nLEFT JOIN __genre_rollup r ON r.rollup_genre = s.genre\nLEFT JOIN title_rev tr ON tr.catalog_game_id = r.game_id\nGROUP BY s.genre\nORDER BY total_gross_revenue DESC NULLS LAST"
+     ],
+     "score": 0,
+     "verdict": "wrong",
+     "judge_reason": "BASELINE is WRONG. Every headline amount is significantly off from expected: ActionRPG $11.05M vs expected $13.44M (17.8% difference), DynamicAdventure $10.54M vs expected $12.66M (16.7% difference), Shooter $5.97M vs expected $7.84M (23.8% difference), Stealth $3.89M vs expected $5.27M (26.2% difference), Platformer $0.86M vs expected $0.99M (13.1% difference), Fighting $14K vs expected $65K (78.5% difference), Survival $7K vs expected $185K (96.2% difference). All differences exceed 3%. BASELINE fell into the NAIVE TRAP: its SQL joins __digital_transactions to __titles using title_id directly (d.title_id = t.title_id), which excludes the ~10% of transactions that have no title_id of their own. The correct approach (used by ONTOLOGY) is to also pull title_id from __digital_products when the transaction lacks one, using COALESCE(t.title_id, p.title_id). This missing data causes systematic undercount across all subgenres."
+    },
+    "ontology": {
+     "text": "Action's seven direct subgenres brought in about **$40.4M in gross revenue** combined. ActionRPG had the most at **$13.4M**.\n\n\n\n\n**The governed rules used:**\n- **Genre Revenue** = Game Revenue joined to the genre roll-up by game, grouped by genre. Each subgenre's total includes its own subgenres.\n- **Game Revenue** = the sum of gross revenue from digital transactions joined to digital products. Each sale's title is taken from the transaction, or from the product when the transaction has none. Every transaction is counted, including the roughly 1 in 10 that have no title of their own.\n- **Game Identity Match Rule** links each sales title to a catalog game, trying three ways in order: the title's own catalog game ID, then the title-code cross-reference, then the same name (ignoring case and accents) and release year.\n- **Action** is a top-level genre. A game counts as a member only when it fully matches the genre's rules.\n\n**Things to keep in mind:**\n- **The subgenres overlap, so don't add them up.** One game can belong to more than one subgenre, so the ~$40.4M total is higher than the revenue from unique Action games. Use the Action roll-up for a de-duplicated total.\n- **ActionRPG is also an RPG,** so its $13.4M is counted in RPG revenue as well.\n- **Soulslike (under ActionRPG) has no revenue of its own.** Its rule needs data that doesn't exist, so no games qualify. Other lower-level subgenres, such as FPS and TPS under Shooter, are already included in their parent's total.\n- **Fighting ($65K, 2 games) and Survival (~$185K, 3 games)** are based on very few games, so their totals are small and fragile.",
+     "status": "completed",
+     "elapsed": 38.0,
+     "tokens": {
+      "input": 217575,
+      "output": 2045
+     },
+     "steps": [
+      {
+       "tool": "query_data",
+       "type": "system_agentic_semantic_context",
+       "sql": null,
+       "input": "{\"pruning_question\": \"Revenue by Action subgenre\"}",
+       "status": "success",
+       "rows": null
+      },
+      {
+       "tool": "business_ontology",
+       "type": "snowscope_search",
+       "sql": null,
+       "input": "{\"query\": \"revenue Action subgenre genre roll-up\"}",
+       "status": "success",
+       "rows": null
+      },
+      {
+       "tool": "business_ontology",
+       "type": "snowscope_search",
+       "sql": null,
+       "input": "{\"query\": \"Game Revenue Game Identity Match Rule\"}",
+       "status": "success",
+       "rows": null
+      },
+      {
+       "tool": "system_execute_sql",
+       "type": "system_execute_sql",
+       "sql": "WITH sales AS (\n  SELECT COALESCE(t.title_id, TRY_TO_NUMBER(p.title_id)) AS tid, t.gross_revenue_amt AS rev\n  FROM __digital_transactions t\n  LEFT JOIN __digital_products p ON t.digital_product_id = p.digital_product_id\n),\nxref AS (\n  SELECT TRY_TO_NUMBER(title_id) AS tid, MIN(catalog_game_id) AS gid FROM __title_code_xref WHERE catalog_game_id IS NOT NULL GROUP BY 1\n),\nnamematch AS (\n  SELECT ti.title_id AS tid, MIN(g.game_id) AS gid\n  FROM __titles ti JOIN __games g\n    ON COLLATE(ti.title_name,'en-ci-ai') = COLLATE(g.game_name,'en-ci-ai')\n   AND LEFT(ti.release_date,4) = TO_VARCHAR(YEAR(g.release_date))\n  GROUP BY 1\n),\nresolved AS (\n  SELECT s.rev, COALESCE(ti.catalog_game_id, x.gid, n.gid) AS game_id\n  FROM sales s\n  LEFT JOIN __titles ti ON s.tid = ti.title_id\n  LEFT JOIN xref x ON s.tid = x.tid\n  LEFT JOIN namematch n ON s.tid = n.tid\n),\nsubs AS (\n  SELECT genre, parent_genre, depth FROM __genre_hierarchy\n  WHERE genre <> 'Action' AND (path ILIKE 'Action >%' OR path ILIKE 'Action/%' OR path ILIKE 'Action,%' OR path ILIKE 'Action %' OR parent_genre = 'Action')\n)\nSELECT sb.genre AS subgenre, sb.parent_genre, sb.depth,\n       COUNT(DISTINCT r.game_id) AS games_with_sales,\n       COALESCE(SUM(r.rev),0) AS gross_revenue\nFROM subs sb\nLEFT JOIN __genre_rollup gr ON gr.rollup_genre = sb.genre\nLEFT JOIN resolved r ON r.game_id = gr.game_id\nGROUP BY 1,2,3\nORDER BY sb.depth, gross_revenue DESC NULLS LAST",
+       "input": null,
+       "status": "success",
+       "rows": 7
+      }
+     ],
+     "tool_calls": 4,
+     "tool_counts": {
+      "query_data": 1,
+      "business_ontology": 2,
+      "system_execute_sql": 1
+     },
+     "sql": [
+      "WITH sales AS (\n  SELECT COALESCE(t.title_id, TRY_TO_NUMBER(p.title_id)) AS tid, t.gross_revenue_amt AS rev\n  FROM __digital_transactions t\n  LEFT JOIN __digital_products p ON t.digital_product_id = p.digital_product_id\n),\nxref AS (\n  SELECT TRY_TO_NUMBER(title_id) AS tid, MIN(catalog_game_id) AS gid FROM __title_code_xref WHERE catalog_game_id IS NOT NULL GROUP BY 1\n),\nnamematch AS (\n  SELECT ti.title_id AS tid, MIN(g.game_id) AS gid\n  FROM __titles ti JOIN __games g\n    ON COLLATE(ti.title_name,'en-ci-ai') = COLLATE(g.game_name,'en-ci-ai')\n   AND LEFT(ti.release_date,4) = TO_VARCHAR(YEAR(g.release_date))\n  GROUP BY 1\n),\nresolved AS (\n  SELECT s.rev, COALESCE(ti.catalog_game_id, x.gid, n.gid) AS game_id\n  FROM sales s\n  LEFT JOIN __titles ti ON s.tid = ti.title_id\n  LEFT JOIN xref x ON s.tid = x.tid\n  LEFT JOIN namematch n ON s.tid = n.tid\n),\nsubs AS (\n  SELECT genre, parent_genre, depth FROM __genre_hierarchy\n  WHERE genre <> 'Action' AND (path ILIKE 'Action >%' OR path ILIKE 'Action/%' OR path ILIKE 'Action,%' OR path ILIKE 'Action %' OR parent_genre = 'Action')\n)\nSELECT sb.genre AS subgenre, sb.parent_genre, sb.depth,\n       COUNT(DISTINCT r.game_id) AS games_with_sales,\n       COALESCE(SUM(r.rev),0) AS gross_revenue\nFROM subs sb\nLEFT JOIN __genre_rollup gr ON gr.rollup_genre = sb.genre\nLEFT JOIN resolved r ON r.game_id = gr.game_id\nGROUP BY 1,2,3\nORDER BY sb.depth, gross_revenue DESC NULLS LAST"
+     ],
+     "score": 1,
+     "verdict": "correct",
+     "judge_reason": "ONTOLOGY is CORRECT. The headline amounts match expected values within 1%: ActionRPG $13.4M vs expected $13.44M (0.3% difference), DynamicAdventure implicitly matches $12.66M, Shooter matches $7.84M, Stealth matches $5.27M, Platformer matches $0.99M, Survival ~$185K matches $184,988.76 (0.0% difference), Fighting $65K matches exactly. ONTOLOGY correctly avoided the NAIVE TRAP by using COALESCE(t.title_id, TRY_TO_NUMBER(p.title_id)) to capture all transactions, including those without a direct title_id. It also properly implements the Genre Roll-up Rule to include each subgenre's own children (e.g., Shooter includes FPS and TPS). The answer correctly warns that the $40.4M sum double-counts games and should not be used as Action's total, demonstrating understanding of the non-additive nature of Genre Revenue."
+    }
+   }
+  },
+  {
+   "id": 10,
+   "challenge": "C5 codes + synonym",
+   "question": "What was console revenue in North America?",
+   "expected": "$70,243,201.72",
+   "naive_trap": "\"Console\" is not a column or table name; uses the customer code `SIEA` on hardware sales (which use NA) → $0",
+   "headline": "ONTOLOGY correct (1.0) vs BASELINE partially correct (0.33): Console Revenue = Hardware Revenue",
+   "answers": {
+    "baseline": {
+     "text": "North America's console revenue was about **$64.17M** in gross sales across all available years, from March 4, 2000 to October 8, 2026.\n\nI added up the gross revenue from hardware sales where the product type is console and the region is North America. That covers 190,205 console sales. North America is the largest region for console sales, ahead of Europe at $56.29M.\n\nI counted console hardware only. If you also count controllers ($4.84M) and VR headsets ($1.24M), North America's total hardware revenue is about **$70.24M**.\n\n\"Console revenue\" could also mean money from games and in-game purchases bought on console platforms. I didn't include that here. I can work it out if that's what you meant.",
+     "status": "completed",
+     "elapsed": 23.9,
+     "tokens": {
+      "input": 140273,
+      "output": 670
+     },
+     "steps": [
+      {
+       "tool": "query_data",
+       "type": "system_agentic_semantic_context",
+       "sql": null,
+       "input": "{}",
+       "status": "success",
+       "rows": null
+      },
+      {
+       "tool": "system_execute_sql",
+       "type": "system_execute_sql",
+       "sql": "SELECT hp.product_type, hs.region, SUM(hs.hw_gross_revenue_amt) rev, COUNT(*) n, MIN(hs.sale_date) s, MAX(hs.sale_date) e FROM __hardware_sales hs LEFT JOIN __hardware_products hp ON hs.hardware_product_id=hp.hardware_product_id GROUP BY 1,2 ORDER BY 1,2",
+       "input": null,
+       "status": "success",
+       "rows": 15
+      }
+     ],
+     "tool_calls": 2,
+     "tool_counts": {
+      "query_data": 1,
+      "system_execute_sql": 1
+     },
+     "sql": [
+      "SELECT hp.product_type, hs.region, SUM(hs.hw_gross_revenue_amt) rev, COUNT(*) n, MIN(hs.sale_date) s, MAX(hs.sale_date) e FROM __hardware_sales hs LEFT JOIN __hardware_products hp ON hs.hardware_product_id=hp.hardware_product_id GROUP BY 1,2 ORDER BY 1,2"
+     ],
+     "score": 0.33,
+     "verdict": "partial",
+     "judge_reason": "The BASELINE's main headline answer is \"$64.17M\" for console revenue, which is 8.6% off from the expected $70,243,201.72. The agent filtered for product_type='console' only, missing controllers and VR headsets that are part of the governed \"Console Revenue\" (Hardware Revenue) definition. The correct answer of $70.24M appears only as an alternative caveat (\"If you also count controllers... total hardware revenue is about $70.24M\"), not as the main answer. The agent did not fall into the NAIVE TRAP (correctly used region='NA' not customer code 'SIEA'), but answered a narrower question than asked. Since the expected answer appears as an alternative rather than the headline, this scores 0.33 (partially correct)."
+    },
+    "ontology": {
+     "text": "**Console Revenue in North America was $70.24M**, covering 284,828 hardware sales from March 4, 2000 to October 8, 2026.\n\n**How the definition works:**\n- **\"Console Revenue\" is another name for Hardware Revenue**, which is defined as gross sales of consoles and peripherals. Formula: `SUM(GROSS_REVENUE) FROM HARDWARE_SALES_TRANSACTIONS`.\n- **North America filter:** I used the region code `NA`. The hardware sales table has its own region codes (NA, EU, JP, ASIA, LATAM). The `SIEA` code is only used on customer accounts.\n\n**By product type:**\n\n| Product type | Gross revenue | Sales |\n|---|---|---|\n| Consoles | $64.17M | 190,205 |\n| Controllers | $4.84M | 91,833 |\n| VR headsets | $1.24M | 2,790 |\n| **Total (Hardware Revenue)** | **$70.24M** | **284,828** |\n\nThe governed figure includes peripherals. If you meant console units only, the answer is **$64.17M** (about 91% of the total).",
+     "status": "completed",
+     "elapsed": 28.6,
+     "tokens": {
+      "input": 156773,
+      "output": 1002
+     },
+     "steps": [
+      {
+       "tool": "query_data",
+       "type": "system_agentic_semantic_context",
+       "sql": null,
+       "input": "{\"pruning_question\": \"What was console revenue in North America?\"}",
+       "status": "success",
+       "rows": null
+      },
+      {
+       "tool": "business_ontology",
+       "type": "snowscope_search",
+       "sql": null,
+       "input": "{\"query\": \"console revenue North America region\"}",
+       "status": "success",
+       "rows": null
+      },
+      {
+       "tool": "system_execute_sql",
+       "type": "system_execute_sql",
+       "sql": "SELECT COALESCE(p.product_type,'(unknown)') AS product_type, SUM(h.hw_gross_revenue_amt) AS revenue, COUNT(*) AS txns, MIN(h.sale_date) AS start_date, MAX(h.sale_date) AS end_date\nFROM __hardware_sales h LEFT JOIN __hardware_products p ON h.hardware_product_id = p.hardware_product_id\nWHERE h.region = 'NA'\nGROUP BY ROLLUP(p.product_type) ORDER BY revenue DESC",
+       "input": null,
+       "status": "success",
+       "rows": 4
+      }
+     ],
+     "tool_calls": 3,
+     "tool_counts": {
+      "query_data": 1,
+      "business_ontology": 1,
+      "system_execute_sql": 1
+     },
+     "sql": [
+      "SELECT COALESCE(p.product_type,'(unknown)') AS product_type, SUM(h.hw_gross_revenue_amt) AS revenue, COUNT(*) AS txns, MIN(h.sale_date) AS start_date, MAX(h.sale_date) AS end_date\nFROM __hardware_sales h LEFT JOIN __hardware_products p ON h.hardware_product_id = p.hardware_product_id\nWHERE h.region = 'NA'\nGROUP BY ROLLUP(p.product_type) ORDER BY revenue DESC"
+     ],
+     "score": 1,
+     "verdict": "correct",
+     "judge_reason": "The ONTOLOGY's main headline answer is \"$70.24M\", which matches the expected $70,243,201.72 within 0.0% difference (exact match when rounded). The agent correctly identified that \"Console Revenue\" is a synonym for \"Hardware Revenue\" per the governed definition, which includes consoles, controllers, and VR headsets. The SQL correctly filtered WHERE region='NA' (not the SIEA customer code trap), summed hw_gross_revenue_amt across all hardware product types, and provided the complete breakdown. The agent explicitly explained the governed definition and avoided the NAIVE TRAP. All headline amounts, counts, and logic are correct."
+    }
+   }
+  },
+  {
+   "id": 11,
+   "challenge": "C2 + C3 weak key",
+   "question": "How much revenue did the Ghost of Tsushima franchise make?",
+   "expected": "$978,000.00 (Ghost of Tsushima $780,000.00 + Ghost of Yōtei $198,000.00)",
+   "naive_trap": "Franchise exists only in the catalog, and Ghost of Yōtei has no catalog ID, no store code and an accent-free Sales name (\"Ghost of Yotei\"), so the catalog-ID join drops it → $780,000.00 (or ~$700,775 if untagged transactions are also dropped)",
+   "headline": "BASELINE wrong (20.2% low, missed Ghost of Yōtei); ONTOLOGY correct (exact match)",
+   "answers": {
+    "baseline": {
+     "text": "**The Ghost of Tsushima franchise made $780,000 in gross digital revenue.** Net developer revenue was almost the same, at about $779,973.\n\n**How I got it:**\n- I added up gross revenue from 18,772 digital sales transactions.\n- I linked each transaction to its product, then to its sales title, and then to the catalog game tagged with the \"Ghost of Tsushima\" franchise.\n- In this data, the franchise has only one game, Ghost of Tsushima. No sequel such as Ghost of Yōtei appears.\n\n**Things to know:**\n- I first tried matching transactions straight to the title, skipping the product link. That isn't how the data model connects these tables, and it only found 16,882 transactions ($700,775). The $780,000 figure uses the model's proper link through products, so it's the one to use.\n- These figures are only from digital sales. Hardware and subscription revenue aren't tied to individual games, so they aren't included.",
+     "status": "completed",
+     "elapsed": 27.1,
+     "tokens": {
+      "input": 185408,
+      "output": 1309
+     },
+     "steps": [
+      {
+       "tool": "query_data",
+       "type": "system_agentic_semantic_context",
+       "sql": null,
+       "input": "{}",
+       "status": "success",
+       "rows": null
+      },
+      {
+       "tool": "system_execute_sql",
+       "type": "system_execute_sql",
+       "sql": "SELECT g.franchise_name, g.game_name, t.title_name, SUM(d.gross_revenue_amt) AS gross_revenue, SUM(d.net_developer_revenue_amt) AS net_dev_revenue, COUNT(d.transaction_id) AS txns, MIN(d.transaction_date) AS start_date, MAX(d.transaction_date) AS end_date\nFROM __games g JOIN __titles t ON t.catalog_game_id = g.game_id\nLEFT JOIN __digital_transactions d ON d.title_id = t.title_id\nWHERE g.franchise_name ILIKE '%Tsushima%' OR g.game_name ILIKE '%Tsushima%' OR g.game_name ILIKE '%Yotei%'\nGROUP BY ALL ORDER BY gross_revenue DESC NULLS LAST",
+       "input": null,
+       "status": "success",
+       "rows": 1
+      },
+      {
+       "tool": "system_execute_sql",
+       "type": "system_execute_sql",
+       "sql": "SELECT SUM(d.gross_revenue_amt) AS gross_revenue, SUM(d.net_developer_revenue_amt) AS net_dev_revenue, COUNT(d.transaction_id) AS txns\nFROM __digital_transactions d JOIN __digital_products p ON d.digital_product_id = p.digital_product_id\nJOIN __titles t ON p.title_id = t.title_id JOIN __games g ON t.catalog_game_id = g.game_id\nWHERE g.franchise_name ILIKE '%Tsushima%'",
+       "input": null,
+       "status": "success",
+       "rows": 1
+      }
+     ],
+     "tool_calls": 3,
+     "tool_counts": {
+      "query_data": 1,
+      "system_execute_sql": 2
+     },
+     "sql": [
+      "SELECT g.franchise_name, g.game_name, t.title_name, SUM(d.gross_revenue_amt) AS gross_revenue, SUM(d.net_developer_revenue_amt) AS net_dev_revenue, COUNT(d.transaction_id) AS txns, MIN(d.transaction_date) AS start_date, MAX(d.transaction_date) AS end_date\nFROM __games g JOIN __titles t ON t.catalog_game_id = g.game_id\nLEFT JOIN __digital_transactions d ON d.title_id = t.title_id\nWHERE g.franchise_name ILIKE '%Tsushima%' OR g.game_name ILIKE '%Tsushima%' OR g.game_name ILIKE '%Yotei%'\nGROUP BY ALL ORDER BY gross_revenue DESC NULLS LAST",
+      "SELECT SUM(d.gross_revenue_amt) AS gross_revenue, SUM(d.net_developer_revenue_amt) AS net_dev_revenue, COUNT(d.transaction_id) AS txns\nFROM __digital_transactions d JOIN __digital_products p ON d.digital_product_id = p.digital_product_id\nJOIN __titles t ON p.title_id = t.title_id JOIN __games g ON t.catalog_game_id = g.game_id\nWHERE g.franchise_name ILIKE '%Tsushima%'"
+     ],
+     "score": 0,
+     "verdict": "wrong",
+     "judge_reason": "The BASELINE headline answer is $780,000, which is 20.2% below the expected $978,000. The agent fell directly into the NAIVE TRAP: it joined digital_transactions → digital_products → titles → games using only catalog_game_id (t.catalog_game_id = g.game_id), which dropped Ghost of Yōtei because that game has no catalog ID in the sales data and is recorded with the accent-free name \"Ghost of Yotei\". The agent found only Ghost of Tsushima's $780,000 and explicitly noted \"the franchise has only one game\" and \"No sequel such as Ghost of Yōtei appears.\" The percentage difference (20.2%) far exceeds the 3% threshold for wrong."
+    },
+    "ontology": {
+     "text": "The Ghost of Tsushima franchise made **$978,000** in gross revenue.\n\n**How it's defined:** Franchise Revenue = Game Revenue grouped by franchise name. Game Revenue is SUM(gross revenue) from digital product transactions. Each sale is first matched to a catalog game using the Game Identity Match Rule, which tries three routes in order:\n1. The title's own catalog game ID.\n2. The title code cross-reference.\n3. The game name plus release year, ignoring case and accents.\n\nThe franchise doesn't have its own table, so its total is just the sum of its games.\n\n**Breakdown:**\n\n| Game | Transactions | Gross Revenue |\n|---|---|---|\n| Ghost of Tsushima | 18,772 | $780,000 |\n| Ghost of Yōtei | 2,847 | $198,000 |\n| **Franchise total** | **21,619** | **$978,000** |\n\n**About the match rule:** In the sales data, Ghost of Yōtei is listed as \"Ghost of Yotei\" with no direct catalog game ID. It only counts toward the franchise because the later match routes link it to the catalog entry \"Ghost of Yōtei\". Without them, its $198,000 would have been left out.\n\n**What this covers:** This is gross digital sales, before the store's commission is taken out. Monthly and quarterly title income are stored separately and aren't counted under this definition.",
+     "status": "completed",
+     "elapsed": 41.3,
+     "tokens": {
+      "input": 254193,
+      "output": 1973
+     },
+     "steps": [
+      {
+       "tool": "query_data",
+       "type": "system_agentic_semantic_context",
+       "sql": null,
+       "input": "{\"pruning_question\": \"Total revenue for Ghost of Tsushima franchise games\"}",
+       "status": "success",
+       "rows": null
+      },
+      {
+       "tool": "business_ontology",
+       "type": "snowscope_search",
+       "sql": null,
+       "input": "{\"query\": \"franchise revenue Ghost of Tsushima\"}",
+       "status": "success",
+       "rows": null
+      },
+      {
+       "tool": "system_execute_sql",
+       "type": "system_execute_sql",
+       "sql": "WITH tx AS (\n  SELECT COALESCE(t.title_id, p.title_id) AS tid, t.gross_revenue_amt AS rev\n  FROM __digital_transactions t LEFT JOIN __digital_products p ON t.digital_product_id = p.digital_product_id\n),\nx AS (SELECT title_id, MIN(catalog_game_id) AS cgid FROM __title_code_xref WHERE catalog_game_id IS NOT NULL GROUP BY title_id),\nres AS (\n  SELECT tx.tid, tx.rev, ti.title_name, ti.release_date AS trd,\n    COALESCE(ti.catalog_game_id, x.cgid,\n      (SELECT MIN(g.game_id) FROM __games g WHERE COLLATE(g.game_name,'en-ci-ai') = COLLATE(ti.title_name,'en-ci-ai')\n        AND YEAR(g.release_date) = TRY_TO_NUMBER(LEFT(ti.release_date,4)))) AS gid\n  FROM tx LEFT JOIN __titles ti ON tx.tid = ti.title_id LEFT JOIN x ON x.title_id = tx.tid\n)\nSELECT g.franchise_name, g.game_name, COUNT(*) AS txns, SUM(r.rev) AS gross_revenue\nFROM res r JOIN __games g ON g.game_id = r.gid\nWHERE g.franchise_name ILIKE '%tsushima%' OR g.game_name ILIKE '%tsushima%' OR g.game_name ILIKE '%y_tei%'\nGROUP BY 1,2 ORDER BY 4 DESC",
+       "input": null,
+       "status": "success",
+       "rows": 2
+      },
+      {
+       "tool": "system_execute_sql",
+       "type": "system_execute_sql",
+       "sql": "SELECT title_id, title_name, release_date, catalog_game_id FROM __titles WHERE title_name ILIKE '%tsushima%' OR COLLATE(title_name,'en-ci-ai') ILIKE '%yotei%' OR title_name ILIKE '%ghost%'",
+       "input": null,
+       "status": "error",
+       "rows": null
+      },
+      {
+       "tool": "system_execute_sql",
+       "type": "system_execute_sql",
+       "sql": "SELECT title_id, title_name, release_date, catalog_game_id FROM __titles WHERE title_name ILIKE '%tsushima%' OR title_name ILIKE '%ghost%' OR title_name ILIKE '%y%tei%'",
+       "input": null,
+       "status": "success",
+       "rows": 2
+      }
+     ],
+     "tool_calls": 5,
+     "tool_counts": {
+      "query_data": 1,
+      "business_ontology": 1,
+      "system_execute_sql": 3
+     },
+     "sql": [
+      "WITH tx AS (\n  SELECT COALESCE(t.title_id, p.title_id) AS tid, t.gross_revenue_amt AS rev\n  FROM __digital_transactions t LEFT JOIN __digital_products p ON t.digital_product_id = p.digital_product_id\n),\nx AS (SELECT title_id, MIN(catalog_game_id) AS cgid FROM __title_code_xref WHERE catalog_game_id IS NOT NULL GROUP BY title_id),\nres AS (\n  SELECT tx.tid, tx.rev, ti.title_name, ti.release_date AS trd,\n    COALESCE(ti.catalog_game_id, x.cgid,\n      (SELECT MIN(g.game_id) FROM __games g WHERE COLLATE(g.game_name,'en-ci-ai') = COLLATE(ti.title_name,'en-ci-ai')\n        AND YEAR(g.release_date) = TRY_TO_NUMBER(LEFT(ti.release_date,4)))) AS gid\n  FROM tx LEFT JOIN __titles ti ON tx.tid = ti.title_id LEFT JOIN x ON x.title_id = tx.tid\n)\nSELECT g.franchise_name, g.game_name, COUNT(*) AS txns, SUM(r.rev) AS gross_revenue\nFROM res r JOIN __games g ON g.game_id = r.gid\nWHERE g.franchise_name ILIKE '%tsushima%' OR g.game_name ILIKE '%tsushima%' OR g.game_name ILIKE '%y_tei%'\nGROUP BY 1,2 ORDER BY 4 DESC",
+      "SELECT title_id, title_name, release_date, catalog_game_id FROM __titles WHERE title_name ILIKE '%tsushima%' OR COLLATE(title_name,'en-ci-ai') ILIKE '%yotei%' OR title_name ILIKE '%ghost%'",
+      "SELECT title_id, title_name, release_date, catalog_game_id FROM __titles WHERE title_name ILIKE '%tsushima%' OR title_name ILIKE '%ghost%' OR title_name ILIKE '%y%tei%'"
+     ],
+     "score": 1,
+     "verdict": "correct",
+     "judge_reason": "The ONTOLOGY headline answer is $978,000, which exactly matches the expected $978,000 (0.0% difference). The breakdown is also correct: Ghost of Tsushima $780,000 + Ghost of Yōtei $198,000. The agent avoided the NAIVE TRAP by implementing the Game Identity Match Rule with three fallback routes: (1) catalog_game_id, (2) title_code_xref, and (3) accent-insensitive name + year matching. This third route successfully linked the sales record \"Ghost of Yotei\" (no accent, no catalog ID) to the catalog entry \"Ghost of Yōtei\" (with accent), capturing all franchise revenue. The transaction counts (18,772 + 2,847 = 21,619) are consistent with the complete answer."
+    }
+   }
+  },
+  {
+   "id": 12,
+   "challenge": "control (C3 imperfect keys)",
+   "question": "What is our total digital game revenue?",
+   "expected": "$19,231,852.01",
+   "naive_trap": "Drops transactions whose game key is missing → $17,312,180.80",
+   "headline": "Both agents correct: $19.23M digital game revenue",
+   "answers": {
+    "baseline": {
+     "text": "Total digital game revenue is **$19.23M gross**.\n\nI added up the gross revenue on all 534,440 digital game transactions, which run from March 22, 2005 to October 8, 2026. I didn't filter by date because you didn't give a time period.\n\nNet revenue to developers is **$19.12M**. That's about 99.4% of gross, which means only around $112K, or 0.6%, comes off as the platform's share. That's much smaller than the usual store cut, so the net figure in the data is worth checking before you rely on it.\n\nThese numbers cover digital product sales only. Hardware sales and subscription charges are tracked separately and aren't included.",
+     "status": "completed",
+     "elapsed": 19.8,
+     "tokens": {
+      "input": 138958,
+      "output": 661
+     },
+     "steps": [
+      {
+       "tool": "query_data",
+       "type": "system_agentic_semantic_context",
+       "sql": null,
+       "input": "{\"pruning_question\": \"What is total digital game revenue?\"}",
+       "status": "success",
+       "rows": null
+      },
+      {
+       "tool": "system_execute_sql",
+       "type": "system_execute_sql",
+       "sql": "SELECT SUM(gross_revenue_amt) AS total_gross_revenue, SUM(net_developer_revenue_amt) AS total_net_developer_revenue, COUNT(transaction_id) AS txns, MIN(transaction_date) AS start_date, MAX(transaction_date) AS end_date FROM __digital_transactions",
+       "input": null,
+       "status": "success",
+       "rows": 1
+      }
+     ],
+     "tool_calls": 2,
+     "tool_counts": {
+      "query_data": 1,
+      "system_execute_sql": 1
+     },
+     "sql": [
+      "SELECT SUM(gross_revenue_amt) AS total_gross_revenue, SUM(net_developer_revenue_amt) AS total_net_developer_revenue, COUNT(transaction_id) AS txns, MIN(transaction_date) AS start_date, MAX(transaction_date) AS end_date FROM __digital_transactions"
+     ],
+     "score": 1,
+     "verdict": "correct",
+     "judge_reason": "The BASELINE headline answer is \"$19.23M gross\" which matches the expected answer of $19,231,852.01 exactly (0.0% difference). The agent correctly summed gross_revenue_amt from all 534,440 digital transactions without filtering on TITLE_ID, thereby avoiding the naive trap. The SQL shows a straightforward SUM(gross_revenue_amt) with no joins or filters that would drop transactions with missing game keys. The additional context about net revenue and platform share does not contradict the main answer."
+    },
+    "ontology": {
+     "text": "Total digital game revenue is **about $19.23 million** ($19,231,852.01) in gross sales. That covers 534,440 digital purchases from March 22, 2005 to October 8, 2026.\n\n**How it's defined:** your business definitions call this metric \"Digital Gross Revenue\" (also \"Digital Revenue\" or \"Digital Sales\"):\n\n> **Digital Gross Revenue = SUM(GROSS_REVENUE)** across all digital store purchases, before the platform takes its commission.\n\n**What's included:**\n- Every purchase is counted, as the definition requires. That includes the roughly 1 in 10 purchases with no game recorded directly on them, because they still belong to a game through the product that was bought.\n- The figure is gross, before the store's commission. For reference, the publisher's share after commission (\"Net Publisher Revenue\") is about $19.12 million.\n\n**Something to check:** that leaves only about $112K (around 0.6%) as the store's commission. That's far below a typical store cut, so the commission rates in the data may be stored or applied incorrectly. This doesn't change the $19.23 million total, but it does affect the net and commission figures.\n\nIf you want, I can break the total down by game, genre, revenue type (such as base games, DLC or battle passes) or year.",
+     "status": "completed",
+     "elapsed": 27.6,
+     "tokens": {
+      "input": 156845,
+      "output": 928
+     },
+     "steps": [
+      {
+       "tool": "query_data",
+       "type": "system_agentic_semantic_context",
+       "sql": null,
+       "input": "{\"pruning_question\": \"What is total digital game revenue?\"}",
+       "status": "success",
+       "rows": null
+      },
+      {
+       "tool": "business_ontology",
+       "type": "snowscope_search",
+       "sql": null,
+       "input": "{\"query\": \"digital game revenue\"}",
+       "status": "success",
+       "rows": null
+      },
+      {
+       "tool": "system_execute_sql",
+       "type": "system_execute_sql",
+       "sql": "SELECT SUM(gross_revenue_amt) AS digital_gross_revenue, COUNT(transaction_id) AS txn_count, SUM(net_developer_revenue_amt) AS net_publisher_revenue, MIN(transaction_date) AS start_date, MAX(transaction_date) AS end_date FROM __digital_transactions",
+       "input": null,
+       "status": "success",
+       "rows": 1
+      }
+     ],
+     "tool_calls": 3,
+     "tool_counts": {
+      "query_data": 1,
+      "business_ontology": 1,
+      "system_execute_sql": 1
+     },
+     "sql": [
+      "SELECT SUM(gross_revenue_amt) AS digital_gross_revenue, COUNT(transaction_id) AS txn_count, SUM(net_developer_revenue_amt) AS net_publisher_revenue, MIN(transaction_date) AS start_date, MAX(transaction_date) AS end_date FROM __digital_transactions"
+     ],
+     "score": 1,
+     "verdict": "correct",
+     "judge_reason": "The ONTOLOGY headline answer is \"$19.23 million\" with the exact figure \"$19,231,852.01\" explicitly stated, matching the expected answer perfectly (0.0% difference). The agent correctly summed gross_revenue_amt from all 534,440 digital transactions without filtering on TITLE_ID, avoiding the naive trap. The SQL shows SUM(gross_revenue_amt) with no problematic joins or filters. The agent explicitly references the \"Digital Gross Revenue\" ontology definition and correctly notes that all purchases are counted, including those with no game recorded directly. The additional business context and caveats do not contradict the main answer."
+    }
+   }
+  },
+  {
+   "id": 13,
+   "challenge": "control (C6 overloaded names)",
+   "question": "How many active customers do we have?",
+   "expected": "96,773",
+   "naive_trap": "Counts all accounts → 289,225",
+   "headline": "Both agents correct: 96,773 active customers",
+   "answers": {
+    "baseline": {
+     "text": "We have **96,773 active customers**, about 33% of the 289,225 customer accounts.\n\nI got this by counting customer accounts by their status code. The status field only holds one-letter codes, and the data model doesn't say what they mean. So \"A\" = Active is my reading, not something the data confirms:\n\n| Status code | Likely meaning | Customers |\n|---|---|---|\n| A | Active | 96,773 |\n| C | Closed / churned | 191,444 |\n| S | Suspended | 1,008 |\n\nIf \"active\" means something else to you, such as customers who bought something or paid for a subscription in the last 30 or 90 days, the number would be different. I can work that out from the transaction and subscription records instead.",
+     "status": "completed",
+     "elapsed": 21.1,
+     "tokens": {
+      "input": 138197,
+      "output": 599
+     },
+     "steps": [
+      {
+       "tool": "query_data",
+       "type": "system_agentic_semantic_context",
+       "sql": null,
+       "input": "{\"pruning_question\": \"How many active customers do we have?\"}",
+       "status": "success",
+       "rows": null
+      },
+      {
+       "tool": "system_execute_sql",
+       "type": "system_execute_sql",
+       "sql": "SELECT status, COUNT(customer_id) AS customer_count FROM __customers GROUP BY status ORDER BY customer_count DESC",
+       "input": null,
+       "status": "success",
+       "rows": 3
+      }
+     ],
+     "tool_calls": 2,
+     "tool_counts": {
+      "query_data": 1,
+      "system_execute_sql": 1
+     },
+     "sql": [
+      "SELECT status, COUNT(customer_id) AS customer_count FROM __customers GROUP BY status ORDER BY customer_count DESC"
+     ],
+     "score": 1,
+     "verdict": "correct",
+     "judge_reason": "The headline answer is 96,773 active customers, which matches the expected answer exactly (0% difference). The BASELINE agent correctly filtered for status = 'A' to identify active customers and avoided the naive trap of counting all 289,225 accounts. The SQL shows proper filtering: GROUP BY status and counting only the 'A' status records. The agent appropriately expressed uncertainty about the meaning of status codes since it only had access to the semantic view without governed definitions, but still arrived at the correct interpretation and count. The additional context about other status codes and alternative definitions does not contradict the main answer."
+    },
+    "ontology": {
+     "text": "You have **96,773 active customers**.\n\n**How \"active\" is defined (Business Ontology):**\n- **Active Customer Count** = `COUNT(*) FROM GAME_SALES.CUSTOMER_ACCOUNTS WHERE STATUS = 'A'`\n- Account status codes: **A** = active, **S** = suspended, **C** = closed. Only 'A' counts as active.\n- This `STATUS` is the customer's account status. It's not the game status or the product listing status.\n- Players, subscribers and buyers all mean the same customer, so each person is counted once.\n\n**Context:** There are 289,225 customer accounts in total, so about 33.5% are active. The other ~192K are suspended or closed.",
+     "status": "completed",
+     "elapsed": 22.7,
+     "tokens": {
+      "input": 151720,
+      "output": 624
+     },
+     "steps": [
+      {
+       "tool": "query_data",
+       "type": "system_agentic_semantic_context",
+       "sql": null,
+       "input": "{\"pruning_question\": \"How many active customers do we have?\"}",
+       "status": "success",
+       "rows": null
+      },
+      {
+       "tool": "business_ontology",
+       "type": "snowscope_search",
+       "sql": null,
+       "input": "{\"query\": \"active customer\"}",
+       "status": "success",
+       "rows": null
+      },
+      {
+       "tool": "system_execute_sql",
+       "type": "system_execute_sql",
+       "sql": "SELECT COUNT(*) AS active_customers, (SELECT COUNT(*) FROM __customers) AS total_customers FROM __customers WHERE status = 'A'",
+       "input": null,
+       "status": "success",
+       "rows": 1
+      }
+     ],
+     "tool_calls": 3,
+     "tool_counts": {
+      "query_data": 1,
+      "business_ontology": 1,
+      "system_execute_sql": 1
+     },
+     "sql": [
+      "SELECT COUNT(*) AS active_customers, (SELECT COUNT(*) FROM __customers) AS total_customers FROM __customers WHERE status = 'A'"
+     ],
+     "score": 1,
+     "verdict": "correct",
+     "judge_reason": "The headline answer is 96,773 active customers, which matches the expected answer exactly (0% difference). The ONTOLOGY agent correctly used the Business Ontology definition of Active Customer Count (STATUS = 'A') and avoided the naive trap of counting all 289,225 accounts. The SQL shows proper filtering: WHERE status = 'A'. The agent leveraged the ontology nodes (Account Status, Active Customer Count) to provide governed definitions confirming that 'A' = active, 'S' = suspended, 'C' = closed, and clarified that this refers to customer account status specifically. The additional context about total accounts and percentage does not contradict the main answer."
+    }
+   }
+  }
+ ]
+}

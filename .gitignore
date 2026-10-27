@@ -1,3 +1,9 @@
 __pycache__/
 *.pyc
 .DS_Store
+.install_state
+.install_state.tmp
+
+# Batch eval output (scripts/batch_eval.py)
+evaluations/results/*
+!evaluations/results/latest.json

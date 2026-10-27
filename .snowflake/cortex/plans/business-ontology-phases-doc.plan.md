@@ -12,7 +12,6 @@
 **Account state:**
 - Business Ontology is enabled and empty (`SYSTEM$GET_GLOSSARY_SUMMARY()` = 0 domains).
 - There are no semantic views.
-- The live data is the messy shape (`sql/mess/RUN_ALL.sql`). All reference answers below come from it.
 
 ## 2. Decision log (written verbatim into both docs)
 
@@ -25,7 +24,6 @@
 | D5 | **Identity = identifier terms, not extra classes.** Game is identified by Catalog Game ID, Sales Title ID and Title Code. Digital Product is identified by SKU Code. The **Game Identity Match Rule** (strong, then medium, then weak) applies to Game and Game Revenue. | Challenges 3 and 4/5. Identifiers are keys of one class, not separate entities. |
 | D6 | `EQUIVALENT_TO` is used **only** for SIE Region Code vs Sales Region Code. | These are two distinct code fields with their own value lists that mean the same thing. That is not the same as one entity in two systems. |
 | D7 | **Curated genre layer:** 14 genre TERM nodes (6 top-level, 8 subgenres) with synonyms, membership and roll-up rules. The other 32 genres stay values in `GENRE_RULES`, listed in the Genre Rule term. | Genre is the main way catalog questions are asked, and synonyms need nodes. Not all 46: drift against the executable `GENRE_RULES` (B-02), 17 unmatchable rules, and some fail the altitude test (B-05). |
-| D8 | **Genre hierarchy edges:** `HAS_VARIANT` only for Shooter to FPS/TPS (single POV axis, R-07). `RELATED_TO` with "subgenre of" everywhere else. Cross-parent: ActionRPG and Soulslike `RELATED_TO` RPG. | There is no subclass type. The skill says to use `RELATED_TO` honestly. The RPG cross-links restore what the single-parent table lost. |
 | D9 | **Do NOT fix the RPG gap in `GENRE_RULES`.** The table stays single-parent (RPG rolls up to 0 games by the strict tree). The ontology alone supplies "ActionRPG is also an RPG". | User decision. The gap is a deliberate with/without-ontology test. Do not raise it again. |
 | D10 | **Excluded as genres:** Other (a bucket); MMO, LocalMultiplayer, MultiplayerAvailable (play modes, overview §7); LiveService (a business model, covered by the Monetization Model term). | Altitude test (B-05). |
 | D11 | **SKUs:** Digital Product (synonym SKU, Add-on) is identified by the **SKU Code** term, which describes the format `<TitleCode>-C<CATEGORY_ID><seq>`. SKU Code is `RELATED_TO` Title Code. Game and Digital Product carry a **grain warning**: one game is sold as many SKUs, so count games, not products. | 354 products (about 3.9 per title, up to 25); 350 have a SKU and 4 do not (PC-only, no store code). The SKU prefix traces back to a Game through the crosswalk. |
@@ -215,4 +213,3 @@ A genre roll-up reference table is included:
 - ontology_setup/ontology_eval_set.md - with/without-ontology test questions and answers
 - [ontology_setup/messy_data_design.md](ontology_setup/messy_data_design.md) - physical locations behind synonyms and representations
 - [ontology_setup/ontology-overview.md](ontology_setup/ontology-overview.md) - prior analysis; §8 repointed
-- [sql/mess/90_verify_mess.sql](sql/mess/90_verify_mess.sql) - identity resolution logic behind the Game Revenue answers

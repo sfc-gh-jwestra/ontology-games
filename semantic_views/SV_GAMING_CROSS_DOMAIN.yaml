@@ -1,0 +1,20 @@
+# Semantic view ONTOLOGY_DEMO.GAME_CATALOG.SV_GAMING_CROSS_DOMAIN
+name: SV_GAMING_CROSS_DOMAIN
+description: 'Composed view used by both demo agents: imports the Game Catalog, Genre Taxonomy and Game Commerce views and adds the strong-key TITLE_GAME join (Sales TITLES.CATALOG_GAME_ID -> Catalog GAMES).'
+imports:
+- database_name: ONTOLOGY_DEMO
+  schema_name: GAME_CATALOG
+  name: SV_GAME_CATALOG
+- database_name: ONTOLOGY_DEMO
+  schema_name: GAME_CATALOG
+  name: SV_GENRE_TAXONOMY
+- database_name: ONTOLOGY_DEMO
+  schema_name: GAME_SALES
+  name: SV_GAME_COMMERCE
+relationships:
+- name: TITLE_GAME
+  left_table: TITLES
+  right_table: GAMES
+  relationship_columns:
+  - left_column: CATALOG_GAME_ID
+    right_column: GAME_ID

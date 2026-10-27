@@ -17,11 +17,10 @@ All generated sales are **1/1000 of real-world revenue**, and the stored numbers
 
 - **Source tables keep actual real-world figures:**
 
-  - `BACKUP_GAME_MNTHLY_REVENUE` is untouched.
+  - `SOURCE_GAME_MONTHLY_REVENUE` is untouched.
   - `ADD_GAME_TMP.ESTIMATED_TOTAL_REVENUE` keeps the actual researched revenue.
   - The `add-game-data-ontology` skill continues to store actual figures.
 
-- **The generator reads `REVENUE_SCALE_DIVISOR = 1000` from `SALES_GEN_CONFIG`** and divides every source figure by it when building targets: backup months, `ADD_GAME_TMP` estimates, console shipments and PS Plus subscriber counts.
 
 - **The rule is recorded in project memory and in the skill.** Both say to store actual revenue in `ADD_GAME_TMP`, and that the synthetic generator divides by 1000.
 
@@ -40,14 +39,13 @@ All generated sales are **1/1000 of real-world revenue**, and the stored numbers
 | MONTHLY\_REVENUE (view)              | \~6,000          | Game-month-category rows across 90 games                                                                                                                                                         |
 | GAME\_REVENUE / QUARTERLY\_REVENUE   | 90 / \~1,900     | Recreated from their unchanged DDL after load                                                                                                                                                    |
 
-Revenue targets after dividing by 1000: the 15 backup games sum to **$8,900,182.01** (each of 587 months rounded to the cent); the 75 researched games to **$10,270,000** (their actual estimates / 1000) plus the 6 imputed games. Largest single title: God of War (2018), ~~23,000 buyers. Hardware revenue is about $160M (consoles average \~$330) and subscriptions about $35M (~~492K annual charges averaging \~$70); both are platform revenue and never feed per-game totals.
 
 ## Generation pipeline
 
 ```mermaid
 flowchart TD
     Cfg[SALES_GEN_CONFIG divisor 1000 and seed] --> Tgt[GAME_REVENUE_TARGETS]
-    Bk[BACKUP_GAME_MNTHLY_REVENUE actual] -->|divide by 1000| Tgt
+    Bk[SOURCE_GAME_MONTHLY_REVENUE actual] -->|divide by 1000| Tgt
     Tmp[ADD_GAME_TMP actual estimates] -->|divide by 1000| Curve[Lifecycle curve simulation]
     Curve --> Tgt
     Cat[Catalog seed] --> Cust[Customers and console ownership]
@@ -63,7 +61,6 @@ Generation is set-based SQL inside stored procedures (no Python row loops), so \
 
 ### 1. Monthly revenue targets per game
 
-- **15 backup games:** target per month = `ROUND(MONTHLY_INCOME / 1000, 2)`, keeping the original lifecycle tag (launch, ongoing, tail, dlc\_bump, seasonal).
 
 - **75 researched games:** simulate a monthly curve from release date to Oct 2026 using the original `SP_GENERATE_MONTHLY_REVENUE` weights (launch spike, decay, DLC bumps at months 3/6/12/18, seasonal bumps every 3 months for live-service, holiday 1.3x). The curve is normalized over months up to today, so its total equals `ESTIMATED_TOTAL_REVENUE / 1000`.
 
@@ -132,7 +129,6 @@ For each target (game, month, category), the generator picks distinct buyers:
 For each (game, month, category) target T at effective price p:
 
 - n = floor(T / p) units at price p; the remainder r is spread across those n units as cent-level price variance (regional pricing), so the target is hit to the cent.
-- **Sub-unit months:** 36 backup tail months are below one unit's price once divided by 1000 (smallest is $0.05). Their amount carries forward into the game's next month with sales. Lifetime totals per game still match to the cent; those 36 months show $0 and the receiving months are higher.
 
 ### 6. PS Plus subscriptions (annual billing only)
 
@@ -161,11 +157,9 @@ For each (game, month, category) target T at effective price p:
 
 - **Revenue:**
 
-  - Each backup month's view total equals `ROUND(MONTHLY_INCOME / 1000, 2)`, except the 36 carried-forward months.
   - Each game's lifetime total matches to the cent.
-  - The backup games' grand total is $8,900,182.01.
   - Each researched game matches `ESTIMATED_TOTAL_REVENUE / 1000`.
-  - Source tables are unchanged: `BACKUP_GAME_MNTHLY_REVENUE` still totals $8,900,181,986, and `ADD_GAME_TMP` estimates are untouched apart from the 6 imputations.
+  - Source tables are unchanged: `SOURCE_GAME_MONTHLY_REVENUE` still totals $8,900,181,986, and `ADD_GAME_TMP` estimates are untouched apart from the 6 imputations.
 
 - **Ownership rules:** zero rows for `(ACCOUNT_ID, console generation)` with count > 1; zero duplicate `(ACCOUNT_ID, DIGITAL_PRODUCT_ID)` for non-consumables; zero duplicate `(ACCOUNT_ID, GAME_ID)` base-game ownership.
 

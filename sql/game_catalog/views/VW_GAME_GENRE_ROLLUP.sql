@@ -1,9 +1,9 @@
-CREATE OR REPLACE VIEW ONTOLOGY_DEMO.GAME_CATALOG.VW_GAME_GENRE_ROLLUP (
+create or replace view ONTOLOGY_DEMO.GAME_CATALOG.VW_GAME_GENRE_ROLLUP(
 	GAME_ID,
 	ROLLUP_GENRE,
 	ROLLUP_DEPTH
-) COMMENT = 'One row per game per genre it belongs to: each FULL-matched genre plus all its ancestors in the PARENT_GENRE tree. Distinct per (GAME_ID, ROLLUP_GENRE).'
-AS
+) COMMENT='One row per game per genre it belongs to: each FULL-matched genre plus all its ancestors in the PARENT_GENRE tree. Distinct per (GAME_ID, ROLLUP_GENRE).'
+ as
 WITH RECURSIVE anc AS (
     SELECT GENRE, GENRE AS ANCESTOR_GENRE
     FROM ONTOLOGY_DEMO.GAME_CATALOG.GENRE_RULES

@@ -1,11 +1,12 @@
-CREATE OR REPLACE VIEW ONTOLOGY_DEMO.GAME_CATALOG.VW_GENRE_HIERARCHY (
+create or replace view ONTOLOGY_DEMO.GAME_CATALOG.VW_GENRE_HIERARCHY(
 	GENRE,
 	PARENT_GENRE,
 	DEPTH,
 	PATH,
 	IS_LEAF,
 	HAS_RULE
-) AS
+) COMMENT='The table contains a hierarchical structure of genres, with each record representing a specific genre and its relationships to other genres. Each record includes details about the genre''s position in the hierarchy, including its parent genre and depth level, as well as whether it is a leaf node and if it has any associated rules.'
+ as
 WITH RECURSIVE tree AS (
     SELECT GENRE, PARENT_GENRE, 0 AS DEPTH, GENRE::VARCHAR AS PATH, RULE_DEFINITION
     FROM ONTOLOGY_DEMO.GAME_CATALOG.GENRE_RULES

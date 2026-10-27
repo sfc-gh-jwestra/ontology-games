@@ -1,10 +1,10 @@
-CREATE OR REPLACE VIEW ONTOLOGY_DEMO.GAME_SALES.VW_PLATFORM_REVENUE_SUMMARY (
+create or replace view ONTOLOGY_DEMO.GAME_SALES.VW_PLATFORM_REVENUE_SUMMARY(
 	REVENUE_MONTH,
 	CATEGORY_GROUP,
 	GROSS_REVENUE,
 	PLATFORM_REVENUE
-) COMMENT = 'Business-wide monthly revenue by CATEGORY_GROUP (HARDWARE, DIGITAL, SUBSCRIPTION), including non-game revenue. GROSS_REVENUE is what customers paid. PLATFORM_REVENUE is what the platform keeps: all hardware and subscription revenue, and only the commission share of digital sales (GROSS_REVENUE - NET_DEVELOPER_REVENUE).'
-AS
+) COMMENT='Business-wide monthly revenue by CATEGORY_GROUP (HARDWARE, DIGITAL, SUBSCRIPTION), including non-game revenue. GROSS_REVENUE is what customers paid. PLATFORM_REVENUE is what the platform keeps: all hardware and subscription revenue, and only the commission share of digital sales (GROSS_REVENUE - NET_DEVELOPER_REVENUE).'
+ as
 SELECT DATE_TRUNC('MONTH', SALE_TIMESTAMP)::DATE, 'HARDWARE', SUM(GROSS_REVENUE), SUM(GROSS_REVENUE)
 FROM ONTOLOGY_DEMO.GAME_SALES.HARDWARE_SALES_TRANSACTIONS
 GROUP BY 1

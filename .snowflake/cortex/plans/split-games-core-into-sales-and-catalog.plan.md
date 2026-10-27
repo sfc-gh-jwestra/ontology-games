@@ -90,7 +90,6 @@ flowchart LR
    - `GAME_SIMILARITY_SCORES` and `GENRE_WHITESPACE_ANALYSIS`;
    - `GAME_GENRE_CLASSIFICATION` (genre and match per game);
    - Sales totals: digital $19,231,852.01, subscriptions $35,634,616.54, hardware $175,660,810.62.
-2. **Safety clone:** `CREATE SCHEMA ONTOLOGY_DEMO.BACKUP_GAMES_CORE CLONE ONTOLOGY_DEMO.GAMES_CORE`.
 3. **Create the Catalog tables:**
    - For each of the 14 tables, take `GET_DDL`, rewrite `GAMES_CORE` to `GAME_CATALOG` so PKs and FKs point inside Catalog, create the table, then `INSERT ... SELECT` from the source.
    - Set autoincrement starts past the current max IDs (for example `GAME_PLATFORM_ID`). This also fixes the old counters, which were never advanced.
@@ -104,7 +103,6 @@ flowchart LR
 7. **Re-point the Sales objects:** the same for `VW_PLATFORM_EXCLUSIVITY`, `SP_GEN_CATALOG`, `SP_GEN_REVENUE_TARGETS` and `SP_GEN_DIGITAL_SALES`, changing `GAMES_CORE.` to `GAME_SALES.`.
 8. **Refresh the dynamic tables:** run `ALTER DYNAMIC TABLE ... REFRESH` on `GAME_SIMILARITY_SCORES` and `GENRE_WHITESPACE_ANALYSIS`, which may need re-initializing after their underlying views are replaced. Then `GAME_REVENUE` and `QUARTERLY_REVENUE`.
 9. **Verify** (see Verification) while GAMES_CORE still exists. Then rename `GAMES_CORE` to `GAMES_CORE_RETIRED` and re-run the checks, which proves nothing still resolves to it.
-10. **Drop the schema:** `DROP SCHEMA ONTOLOGY_DEMO.GAMES_CORE_RETIRED`. The `BACKUP_GAMES_CORE` clone stays until you approve removing it.
 11. **Project files:**
     - Move `sql/games_core/tables/*.sql` to `sql/game_catalog/tables/`, regenerated from `GET_DDL`.
     - Add the 5 Sales table files under `sql/game_sales/tables/`.
@@ -119,7 +117,6 @@ flowchart LR
     - Add a **"Sales copy"** step after Phase 4 that inserts each new game into `GAME_SALES.GAMES` (ID, name, release date), `GAME_SALES.GAME_PLATFORMS` (same GAME_PLATFORM_IDs) and `GAME_SALES.GAME_MONETIZATION`. New platforms or monetization types go into both lookup tables.
     - Add a consistency check: Sales and Catalog GAME_ID, name and release date must match.
     - Point Phase 6 at `SP_GENERATE_SALES`, which already reads only Sales tables after step 7.
-13. **Memory:** record the new layout, the backup schema, and the rule that the skill writes both systems.
 
 ## Verification
 

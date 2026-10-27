@@ -103,37 +103,23 @@ New table **`GAME_SALES.TITLE_CODE_XREF`** (`TITLE_CODE`, `TITLE_ID`, `PLATFORM_
 
 ```mermaid
 flowchart LR
-  clean[Clean tables] -->|"00 snapshot"| baseline[Schema CLEAN_BASELINE]
-  baseline -->|"10 restore"| work[GAME_CATALOG and GAME_SALES]
   work -->|"20-27 mess per challenge"| messy[Messy systems]
   messy -->|"30 repoint dependents"| ready[Demo ready]
-  baseline -->|"99 restore clean"| cleanAgain[Clean shape for SP_GENERATE_SALES]
 ```
 
-New folder `sql/mess/`:
-- `00_snapshot_clean_baseline.sql` creates schema `ONTOLOGY_DEMO.CLEAN_BASELINE` and zero-copy clones the 16 affected tables:
   - Catalog: GAMES, DEVELOPERS, PUBLISHERS, FRANCHISES, GAME_FRANCHISES, GAME_SEQUELS, STUDIO_ACQUISITIONS.
   - Sales: GAMES, PLATFORMS, GAME_PLATFORMS, CUSTOMER_ACCOUNTS, DIGITAL_PRODUCTS, DIGITAL_PRODUCT_TRANSACTIONS, HARDWARE_SALES_TRANSACTIONS, SUBSCRIPTION_CHARGES, REVENUE_CATEGORIES.
   - Guard: it refuses to run if the live tables are already messy (checks that `GAME_CATALOG.DEVELOPERS` exists).
-- `10_restore_from_baseline.sql` runs `CREATE OR REPLACE TABLE ... CLONE CLEAN_BASELINE.x` for all 16, and drops TITLES, TITLE_CODE_XREF and REVENUE_TYPES if present. This step makes the set re-runnable.
 - `20_c1_overloaded_catalog.sql`, `21_c2_sales_renames.sql`, `22_c3_sales_keys.sql`, `23_c45_title_code_xref.sql`, `24_c6_codes.sql`, `25_c7_overloaded_names.sql`. Each one is deterministic: values come from MOD/rank, with no RANDOM.
 - `30_repoint_dependents.sql` uses `CREATE OR REPLACE` on the messy versions of `VW_CANNIBALIZATION_CANDIDATES`, `SP_FIND_CANNIBALIZATION`, `MONTHLY_REVENUE`, `VW_PLATFORM_EXCLUSIVITY`, `GAME_REVENUE` and `QUARTERLY_REVENUE`.
   - Each change is a column or table rename only. For example, MONTHLY_REVENUE takes its title from `DIGITAL_PRODUCTS.TITLE_ID`, because the transaction TITLE_ID can be NULL; revenue DTs output `TITLE_ID`.
   - No name, region or code cleanup is added.
-- `RUN_ALL.sql` runs 10, 20-25, 30 and then the checks, in order.
-- `99_restore_clean.sql` runs 10, then redeploys the clean dependents from the existing `sql/game_*` files. Use it before `SP_GENERATE_SALES`.
-  - Workflow after a regeneration: run 99, then generate, then 00 (re-snapshot), then RUN_ALL.
 
-The existing clean `sql/game_*` DDL files stay as they are (the clean source of truth). The messy dependent versions live only in `sql/mess/30_*`.
 
 ## 4. Implementation steps
 
-1. Write `00` and run it to snapshot the current clean state. Run it **on its own** and check row counts and `HASH_AGG` per table before anything else. Lesson from earlier: never run a backup in parallel with a change.
-2. Write the `10` restore script and the `20-25` challenge scripts. Run `RUN_ALL` without step 30 and spot-check each challenge (verification below).
 3. Write `30_repoint_dependents.sql`, run it, and refresh the DTs.
-4. Write `99_restore_clean.sql`. **Test the round trip:** 99, then confirm clean hashes match the baseline, then RUN_ALL again and confirm the messy hashes are the same as the first run (idempotent).
 5. Write `ontology_setup/messy_data_design.md`: per-challenge tables (system A vs B, examples, the BO feature that resolves it), the script map, the regeneration workflow, and a **TODO: update add-game-data-ontology skill to write the messy shape**.
-6. Update [ontology-overview.md](ontology-overview.md) with a short "Messy source systems" pointer section, and update project memory (layout, CLEAN_BASELINE, RUN_ALL/99 workflow, generator caveat).
 
 ## 5. Verification
 
@@ -153,12 +139,8 @@ The existing clean `sql/game_*` DDL files stay as they are (the clean source of 
   - `CALL SP_FIND_CANNIBALIZATION(0.3)` runs.
   - `SP_CLASSIFY_GAMES` still gives 3,420 rows / 258 FULL.
   - `GAME_SIMILARITY_SCORES` is unchanged.
-- **Round trip:** 99 then RUN_ALL is idempotent (hashes match).
 
 ## 6. Critical Files
 
-- sql/mess/20_c1_overloaded_catalog.sql through 25_c7_overloaded_names.sql - the mess itself
-- sql/mess/30_repoint_dependents.sql - messy versions of existing views/DTs/procs
-- sql/mess/10_restore_from_baseline.sql and 99_restore_clean.sql - re-runnability
 - ontology_setup/messy_data_design.md - per-challenge summary and ontology resolution
 - [sql/game_sales/views/MONTHLY_REVENUE.sql](sql/game_sales/views/MONTHLY_REVENUE.sql) and [sql/game_catalog/views/VW_CANNIBALIZATION_CANDIDATES.sql](sql/game_catalog/views/VW_CANNIBALIZATION_CANDIDATES.sql) - clean originals that get repointed

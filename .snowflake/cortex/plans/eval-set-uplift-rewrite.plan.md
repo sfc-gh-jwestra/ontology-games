@@ -27,7 +27,6 @@ Run as `ONTOLOGY_APP_ROLE` with no secondary roles, using `DATA_AGENT_RUN` on `G
 ### Age Rating
 **Why it hasn't shown uplift so far:**
 - `AGE_RATINGS` and `GAME_RATINGS` are **not in `GAMING_BASELINE_SV`**, so neither agent can query rating data. A data question can't distinguish them.
-- The rating tables were **not made messy**. They appear in no challenge in `messy_data_design.md` and nothing in `sql/mess/`.
 - `MIN_AGE` already normalizes ages across boards. "Mature" by the governed mapping gives 30 games, and `MIN_AGE >= 17` also gives 30. Even with the tables added to the view, a naive agent gets the count right without the ontology. A plain ESRB filter gives 29, which misses PEGI-only game 643.
 - The governed equivalence text doesn't fully match the data. ESRB T pairs with PEGI 12 on 8 games and PEGI 16 on 13. E10+ always pairs with PEGI 7, but the definition doesn't mention it.
 

@@ -6,7 +6,6 @@ create or replace TABLE ONTOLOGY_DEMO.GAME_SALES.HARDWARE_PRODUCTS (
 	MANUFACTURER VARCHAR(16777216),
 	LIST_PRICE FLOAT,
 	RELEASE_DATE DATE,
-	primary key (HARDWARE_PRODUCT_ID),
-	foreign key (PLATFORM_ID) references ONTOLOGY_DEMO.GAME_SALES.PLATFORMS(PLATFORM_ID)
+	primary key (HARDWARE_PRODUCT_ID)
 )COMMENT='Catalog of consoles, controllers, VR headsets, and accessories. PRODUCT_TYPE is CONSOLE, CONTROLLER, VR_HEADSET, or ACCESSORY. PLATFORM_ID is null for cross-platform accessories.'
 ;

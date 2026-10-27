@@ -1,71 +1,76 @@
 # Ontology vs Baseline compare app
 
-A React + FastAPI app that runs on your machine. It sends the same question to
-`GAMING_BASELINE_AGENT` (semantic view only) and `GAMING_BON_AGENT` (semantic view + Business
-Ontology search) at the same time. Both answers stream side by side, and an AI_COMPLETE judge
-grounded in `ontology_setup/ontology_eval_set.md` explains why the answers differ.
+A React + FastAPI app that runs on your machine. It compares `GAMING_BASELINE_AGENT` (semantic view
+only) with `GAMING_BON_AGENT` (the same semantic view plus Business Ontology search) on the questions in
+`documentation/ontology_eval_set.md`. There is no app login. The layout follows the
+`game_analytics_demo` app, with three tabs:
+
+- **Setup:** how the comparison works, the four semantic views, the three ontology domains, the seven
+  data challenges with their questions, and the deployed agent YAML. Read from repo files.
+- **Compare:** pick a question. The mode defaults to **Recorded**, which shows the answers, tool calls,
+  SQL, tokens, score and judge reason from the latest batch run straight away, with no Snowflake
+  connection. **Live** runs both agents now and judges them. A custom question always runs Live.
+  A scorecard by challenge sits below.
+- **Analysis:** the whole recorded run, grouped by challenge C1-C7. Each question shows a behaviour
+  table (score, tool calls, tools used, tables touched, tokens, time), both answers, and the judge's
+  reasons.
 
 Nothing is deployed to Snowflake. UI edits hot-reload in the browser and backend edits restart
 uvicorn automatically.
 
 ## How it works
 
-- **Sign-in:** Snowflake OAuth (authorization code + PKCE) through the security integration
-  `ONTOLOGY_COMPARE_LOCAL_OAUTH`. You pick a role from `APP_ROLES` in `backend/.env` (default
-  `ONTOLOGY_APP_ROLE`), and the session uses only that role (`OAUTH_USE_SECONDARY_ROLES = NONE`).
-  Tokens stay in backend memory behind an HttpOnly cookie and are refreshed before they expire.
-  Restarting the backend signs you out.
-- **Agent runs:** the backend runs both agents concurrently, as you, with
-  `SNOWFLAKE.CORTEX.DATA_AGENT_RUN` over your OAuth SQL session. The REST `:run` endpoint rejected
-  the app's OAuth token inside the BON agent's tool calls (`390303 Invalid OAuth access token`).
-  SQL returns the whole answer at once, so each pane shows "running" and then the full answer
-  with its steps. Stop cancels the query.
-- **Verdict:** after both runs finish, one `AI_COMPLETE` call (claude-sonnet-4-5, JSON schema,
-  temperature 0) runs as you and compares both answers with the eval key.
-- **Questions:** parsed from `ontology_setup/ontology_eval_set.md` when the backend starts. Edits
-  to that file trigger a reload.
+- **Recorded mode** reads `evaluations/results/latest.json`, which `scripts/batch_eval.py` writes.
+  Rerun that script to refresh it; the app picks up the new file on the next request.
+- **Live mode** opens one named connection from `~/.snowflake/connections.toml` on the first Live run
+  (`SNOWFLAKE_CONNECTION_NAME`, default `ONTOLOGY_DEMO_CONN`). If the profile signs in through the
+  browser (`externalbrowser` or `OAUTH_AUTHORIZATION_CODE`), that is the only login, and the backend
+  reuses the session until it restarts. The session switches to `APP_ROLE` (default
+  `ONTOLOGY_APP_ROLE`) with no secondary roles, the same role the batch eval uses.
+- **Agent runs:** both agents run at the same time with `SNOWFLAKE.CORTEX.DATA_AGENT_RUN` (async query
+  plus polling). SQL returns the whole answer at once, so each pane shows "running" and then the full
+  answer with its steps. Stop cancels the query.
+- **Judge:** `backend/judge.py` is shared with the batch eval, so Live and Recorded scores mean the same
+  thing. One AI_COMPLETE call (claude-sonnet-4-5, temperature 0) scores each answer: 1.0 when amounts are
+  within 1% of expected, 0.67 within 3%, 0.33 when the right answer is only an alternative, and 0
+  otherwise. Correct means 0.67 or higher.
+- **Questions:** parsed from `documentation/ontology_eval_set.md` when the backend starts. Edits to that
+  file trigger a reload.
 
 ## Layout
 
 | Path | Purpose |
 |---|---|
-| `backend/main.py` | FastAPI routes: `/api/me`, `/api/questions`, `/api/compare` (SSE), cancel, SPA |
-| `backend/oauth.py` | `/oauth/login`, `/oauth/callback`, `/oauth/logout`, `/api/roles`, token refresh |
-| `backend/agents.py` | Agent runs via `DATA_AGENT_RUN` (async query, cancel), final-answer summarizer |
-| `backend/judge.py` | AI_COMPLETE verdict |
-| `backend/sf.py` | `.env` loading, REST headers, OAuth SQL connections |
-| `backend/dev_mock.py` | Offline preview with fake agents and sign-in (no Snowflake) |
-| `frontend/` | Vite + React UI; dev server proxies `/api` and `/oauth` to :8080 |
-| `sql/01_local_oauth.sql` | OAuth integration and grants for `ONTOLOGY_APP_ROLE` |
-| `dev.sh` | Starts uvicorn (:8080, reload) and Vite (:5173, HMR) |
+| `backend/main.py` | FastAPI routes: `/api/questions`, `/api/recorded`, `/api/setup`, `/api/live-status`, `/api/compare` (SSE), cancel, SPA |
+| `backend/agents.py` | Agent runs via `DATA_AGENT_RUN` (async query, cancel); `parse_response`, shared with the batch eval |
+| `backend/judge.py` | Graded AI_COMPLETE judge, shared with the batch eval |
+| `backend/sf.py` | The lazy, shared Live connection |
+| `backend/setup_info.py` | Setup tab content from `semantic_views/`, `agents/`, `scripts/build_ontology.py` and the challenges README |
+| `backend/dev_mock.py` | Offline preview with fake Live agents and judge (no Snowflake) |
+| `frontend/` | Vite + React UI (`App.tsx` tabs; `components/SetupView`, `CompareView`, `AnalysisView`, `common`) |
+| `sql/01_app_role.sql` | `ONTOLOGY_APP_ROLE` and its grants (install step 05) |
+| `dev.sh` | Creates `.venv`, starts uvicorn (:8080, reload) and Vite (:5173, HMR) |
 
 ## Setup (once)
 
-1. Run `sql/01_local_oauth.sql` as ACCOUNTADMIN.
-2. `cp backend/.env.example backend/.env`. You don't need to copy the client ID or secret. On the
-   first sign-in the backend reads them from the integration through your `JWESTRA_AWS1` profile
-   in `~/.snowflake/connections.toml` (`OAUTH_SECRETS_CONNECTION` / `OAUTH_SECRETS_ROLE`) and keeps
-   them in memory only. If that profile signs in through the browser, expect one extra Snowflake
-   login tab the first time. To skip the lookup, set `OAUTH_CLIENT_ID` and `OAUTH_CLIENT_SECRET`.
-   To offer more roles, add them to `APP_ROLES` (comma-separated). Each one must be granted to
-   you and have the same privileges as section 2 of the SQL file, including `READ ON ONTOLOGY
-   DOMAIN` for each of the three domains. Without those, the BON agent's ontology search returns
-   nothing, and the agent answers "no governed definition".
-3. `pip install -r backend/requirements.txt`
+1. Run `sql/01_app_role.sql` as ACCOUNTADMIN (install step 05 does this). The role needs
+   `READ ON ONTOLOGY DOMAIN` for each of the three domains. Without it, the BON agent's ontology search
+   returns nothing.
+2. Optional: `cp backend/.env.example backend/.env` to change the connection, role or warehouse.
+
+`dev.sh` creates `app/.venv` and installs `backend/requirements.txt` into it. The connector must be
+version 3.15 or later to support the browser-based `OAUTH_AUTHORIZATION_CODE` authenticator.
 
 ## Run
 
 ```bash
-bash app/dev.sh          # real agents; open http://localhost:5173 and sign in
-bash app/dev.sh --mock   # fake agents, no Snowflake
+bash app/dev.sh          # open http://localhost:5173; Live mode logs in on first use
+bash app/dev.sh --mock   # fake Live agents, no Snowflake
 ```
-
-ACCOUNTADMIN, ORGADMIN and SECURITYADMIN can't sign in through OAuth by default, so use a normal
-role.
 
 ## Tests
 
 ```bash
 cd app/backend
-python3 test_compare.py && python3 -c "import test_questions as t; [getattr(t,n)() for n in dir(t) if n.startswith('test_')]"
+python3 test_compare.py && python3 test_questions.py
 ```

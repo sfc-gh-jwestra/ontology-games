@@ -1,0 +1,601 @@
+# Semantic view ONTOLOGY_DEMO.GAME_CATALOG.SV_GENRE_TAXONOMY
+name: SV_GENRE_TAXONOMY
+description: 'Business Ontology domain: Genre Taxonomy. Genre classification, rules, hierarchy and roll-up, mechanics, gameplay types, contexts, narrative structures and game similarity; imports SV_GAME_CATALOG
+  for GAMES.'
+imports:
+- database_name: ONTOLOGY_DEMO
+  schema_name: GAME_CATALOG
+  name: SV_GAME_CATALOG
+tables:
+- name: GENRE_CLASSIFICATION
+  base_table:
+    database: ONTOLOGY_DEMO
+    schema: GAME_CATALOG
+    table: GAME_GENRE_CLASSIFICATION
+  primary_key:
+    columns:
+    - GAME_ID
+    - GENRE
+  dimensions:
+  - name: GENRE
+    expr: GENRE
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+  - name: MATCH_STATUS
+    expr: MATCH_STATUS
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+  metrics:
+  - name: CLASSIFIED_GAME_COUNT
+    expr: COUNT(DISTINCT genre_classification.GAME_ID)
+    access_modifier: public_access
+- name: GENRE_ROLLUP
+  base_table:
+    database: ONTOLOGY_DEMO
+    schema: GAME_CATALOG
+    table: VW_GAME_GENRE_ROLLUP
+  primary_key:
+    columns:
+    - GAME_ID
+    - ROLLUP_GENRE
+  dimensions:
+  - name: ROLLUP_GENRE
+    expr: ROLLUP_GENRE
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+  - name: ROLLUP_DEPTH
+    expr: ROLLUP_DEPTH
+    data_type: NUMBER(38,0)
+    access_modifier: public_access
+  metrics:
+  - name: ROLLUP_GAME_COUNT
+    expr: COUNT(DISTINCT genre_rollup.GAME_ID)
+    access_modifier: public_access
+- name: GENRE_RULES
+  description: 'One row per genre: its classification rule, disjoint genres and single parent genre.'
+  base_table:
+    database: ONTOLOGY_DEMO
+    schema: GAME_CATALOG
+    table: GENRE_RULES
+  primary_key:
+    columns:
+    - GENRE
+  dimensions:
+  - name: GENRE_RULE_ID
+    expr: GENRE_RULE_ID
+    data_type: NUMBER(38,0)
+    access_modifier: public_access
+  - name: GENRE
+    expr: GENRE
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+  - name: RULE_DEFINITION
+    expr: RULE_DEFINITION
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+  - name: DISJOINT_WITH
+    expr: DISJOINT_WITH
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+  - name: PARENT_GENRE
+    expr: PARENT_GENRE
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+- name: GENRE_HIERARCHY
+  description: 'Genre tree from GENRE_RULES: parent, depth, path, leaf flag.'
+  base_table:
+    database: ONTOLOGY_DEMO
+    schema: GAME_CATALOG
+    table: VW_GENRE_HIERARCHY
+  primary_key:
+    columns:
+    - GENRE
+  dimensions:
+  - name: GENRE
+    expr: GENRE
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+  - name: PARENT_GENRE
+    expr: PARENT_GENRE
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+  - name: DEPTH
+    expr: DEPTH
+    data_type: NUMBER(38,0)
+    access_modifier: public_access
+  - name: PATH
+    expr: PATH
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+  - name: IS_LEAF
+    expr: IS_LEAF
+    data_type: BOOLEAN
+    access_modifier: public_access
+  - name: HAS_RULE
+    expr: HAS_RULE
+    data_type: BOOLEAN
+    access_modifier: public_access
+- name: GENRE_CATEGORY_MAP
+  description: Maps rule categories (predicate types) to the concrete values genre rules test.
+  base_table:
+    database: ONTOLOGY_DEMO
+    schema: GAME_CATALOG
+    table: GENRE_CATEGORY_MAP
+  primary_key:
+    columns:
+    - CATEGORY_NAME
+    - CONCRETE_VALUE
+  dimensions:
+  - name: CATEGORY_NAME
+    expr: CATEGORY_NAME
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+  - name: PREDICATE_TYPE
+    expr: PREDICATE_TYPE
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+  - name: CONCRETE_VALUE
+    expr: CONCRETE_VALUE
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+- name: DISJOINT_GENRE_PAIRS
+  description: Pairs of genres that cannot both apply to one game, with the reason.
+  base_table:
+    database: ONTOLOGY_DEMO
+    schema: GAME_CATALOG
+    table: DISJOINT_GENRE_PAIRS
+  primary_key:
+    columns:
+    - GENRE_A
+    - GENRE_B
+  dimensions:
+  - name: GENRE_A
+    expr: GENRE_A
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+  - name: GENRE_B
+    expr: GENRE_B
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+  - name: REASON
+    expr: REASON
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+- name: GENRE_WHITESPACE
+  description: Genre pairs and how many games combine them, with a market status (crowded, open and so on).
+  base_table:
+    database: ONTOLOGY_DEMO
+    schema: GAME_CATALOG
+    table: GENRE_WHITESPACE_ANALYSIS
+  primary_key:
+    columns:
+    - GENRE_A
+    - GENRE_B
+  dimensions:
+  - name: GENRE_A
+    expr: GENRE_A
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+  - name: GENRE_B
+    expr: GENRE_B
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+  - name: MARKET_STATUS
+    expr: MARKET_STATUS
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+  facts:
+  - name: PAIR_GAME_COUNT
+    expr: GAME_COUNT
+    data_type: NUMBER(18,0)
+    access_modifier: public_access
+- name: MECHANICS
+  description: Game mechanics (crafting, stealth, open world and so on).
+  base_table:
+    database: ONTOLOGY_DEMO
+    schema: GAME_CATALOG
+    table: MECHANICS
+  primary_key:
+    columns:
+    - MECHANIC_ID
+  dimensions:
+  - name: MECHANIC_ID
+    expr: MECHANIC_ID
+    data_type: NUMBER(38,0)
+    access_modifier: public_access
+  - name: MECHANIC_NAME
+    expr: MECHANIC_NAME
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+- name: GAME_MECHANICS
+  description: Mechanics present in each game.
+  base_table:
+    database: ONTOLOGY_DEMO
+    schema: GAME_CATALOG
+    table: GAME_MECHANICS
+  primary_key:
+    columns:
+    - GAME_MECHANIC_ID
+  dimensions:
+  - name: GAME_MECHANIC_ID
+    expr: GAME_MECHANIC_ID
+    data_type: NUMBER(38,0)
+    access_modifier: public_access
+  - name: GAME_ID
+    expr: GAME_ID
+    data_type: NUMBER(38,0)
+    access_modifier: public_access
+  - name: MECHANIC_ID
+    expr: MECHANIC_ID
+    data_type: NUMBER(38,0)
+    access_modifier: public_access
+- name: GAMEPLAY_TYPES
+  description: Gameplay types (combat, exploration, puzzle and so on).
+  base_table:
+    database: ONTOLOGY_DEMO
+    schema: GAME_CATALOG
+    table: GAMEPLAY_TYPES
+  primary_key:
+    columns:
+    - GAMEPLAY_TYPE_ID
+  dimensions:
+  - name: GAMEPLAY_TYPE_ID
+    expr: GAMEPLAY_TYPE_ID
+    data_type: NUMBER(38,0)
+    access_modifier: public_access
+  - name: GAMEPLAY_TYPE_NAME
+    expr: GAMEPLAY_TYPE_NAME
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+- name: GAME_GAMEPLAY
+  description: Gameplay types present in each game.
+  base_table:
+    database: ONTOLOGY_DEMO
+    schema: GAME_CATALOG
+    table: GAME_GAMEPLAY
+  primary_key:
+    columns:
+    - GAME_GAMEPLAY_ID
+  dimensions:
+  - name: GAME_GAMEPLAY_ID
+    expr: GAME_GAMEPLAY_ID
+    data_type: NUMBER(38,0)
+    access_modifier: public_access
+  - name: GAME_ID
+    expr: GAME_ID
+    data_type: NUMBER(38,0)
+    access_modifier: public_access
+  - name: GAMEPLAY_TYPE_ID
+    expr: GAMEPLAY_TYPE_ID
+    data_type: NUMBER(38,0)
+    access_modifier: public_access
+- name: CONTEXTS
+  description: Game settings or contexts (fantasy, sci-fi, historical and so on).
+  base_table:
+    database: ONTOLOGY_DEMO
+    schema: GAME_CATALOG
+    table: CONTEXTS
+  primary_key:
+    columns:
+    - CONTEXT_ID
+  dimensions:
+  - name: CONTEXT_ID
+    expr: CONTEXT_ID
+    data_type: NUMBER(38,0)
+    access_modifier: public_access
+  - name: CONTEXT_NAME
+    expr: CONTEXT_NAME
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+- name: GAME_CONTEXTS
+  description: Contexts that apply to each game.
+  base_table:
+    database: ONTOLOGY_DEMO
+    schema: GAME_CATALOG
+    table: GAME_CONTEXTS
+  primary_key:
+    columns:
+    - GAME_CONTEXT_ID
+  dimensions:
+  - name: GAME_CONTEXT_ID
+    expr: GAME_CONTEXT_ID
+    data_type: NUMBER(38,0)
+    access_modifier: public_access
+  - name: GAME_ID
+    expr: GAME_ID
+    data_type: NUMBER(38,0)
+    access_modifier: public_access
+  - name: CONTEXT_ID
+    expr: CONTEXT_ID
+    data_type: NUMBER(38,0)
+    access_modifier: public_access
+- name: NARRATIVE_STRUCTURES
+  description: Narrative structures (linear, branching, emergent and so on).
+  base_table:
+    database: ONTOLOGY_DEMO
+    schema: GAME_CATALOG
+    table: NARRATIVE_STRUCTURES
+  primary_key:
+    columns:
+    - STRUCTURE_ID
+  dimensions:
+  - name: STRUCTURE_ID
+    expr: STRUCTURE_ID
+    data_type: NUMBER(38,0)
+    access_modifier: public_access
+  - name: STRUCTURE_NAME
+    expr: STRUCTURE_NAME
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+  - name: DESCRIPTION
+    expr: DESCRIPTION
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+- name: SIMILARITY_WEIGHTS
+  description: Weight of each similarity dimension in the weighted overlap score.
+  base_table:
+    database: ONTOLOGY_DEMO
+    schema: GAME_CATALOG
+    table: SIMILARITY_WEIGHTS
+  primary_key:
+    columns:
+    - DIMENSION_NAME
+  dimensions:
+  - name: DIMENSION_NAME
+    expr: DIMENSION_NAME
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+  facts:
+  - name: SIMILARITY_WEIGHT
+    expr: WEIGHT
+    data_type: FLOAT
+    access_modifier: public_access
+- name: GAME_SIMILARITY
+  description: 'Pairwise game similarity: overlap per dimension and the weighted overlap score and tier.'
+  base_table:
+    database: ONTOLOGY_DEMO
+    schema: GAME_CATALOG
+    table: GAME_SIMILARITY_SCORES
+  primary_key:
+    columns:
+    - GAME_A_ID
+    - GAME_B_ID
+  dimensions:
+  - name: GAME_A_ID
+    expr: GAME_A_ID
+    data_type: NUMBER(38,0)
+    access_modifier: public_access
+  - name: GAME_A_NAME
+    expr: GAME_A_NAME
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+  - name: GAME_B_ID
+    expr: GAME_B_ID
+    data_type: NUMBER(38,0)
+    access_modifier: public_access
+  - name: GAME_B_NAME
+    expr: GAME_B_NAME
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+  - name: OVERLAP_TIER
+    expr: OVERLAP_TIER
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+  facts:
+  - name: SIM_GENRE_OVERLAP
+    expr: GENRE_OVERLAP
+    data_type: FLOAT
+    access_modifier: public_access
+  - name: SIM_PLATFORM_OVERLAP
+    expr: PLATFORM_OVERLAP
+    data_type: FLOAT
+    access_modifier: public_access
+  - name: SIM_MECHANIC_OVERLAP
+    expr: MECHANIC_OVERLAP
+    data_type: FLOAT
+    access_modifier: public_access
+  - name: SIM_GAMEPLAY_OVERLAP
+    expr: GAMEPLAY_OVERLAP
+    data_type: FLOAT
+    access_modifier: public_access
+  - name: SIM_CONTEXT_OVERLAP
+    expr: CONTEXT_OVERLAP
+    data_type: FLOAT
+    access_modifier: public_access
+  - name: SIM_POV_MATCH
+    expr: POV_MATCH
+    data_type: NUMBER(1,0)
+    access_modifier: public_access
+  - name: SIM_NARRATIVE_MATCH
+    expr: NARRATIVE_MATCH
+    data_type: NUMBER(1,0)
+    access_modifier: public_access
+  - name: SIM_WEIGHTED_OVERLAP
+    expr: WEIGHTED_OVERLAP
+    data_type: FLOAT
+    access_modifier: public_access
+  metrics:
+  - name: AVG_WEIGHTED_OVERLAP
+    expr: AVG(game_similarity.WEIGHTED_OVERLAP)
+    access_modifier: public_access
+- name: GAME_OVERLAP_MATRIX
+  description: Unweighted per-dimension overlap for every game pair.
+  base_table:
+    database: ONTOLOGY_DEMO
+    schema: GAME_CATALOG
+    table: VW_GAME_OVERLAP_MATRIX
+  primary_key:
+    columns:
+    - GAME_A_ID
+    - GAME_B_ID
+  dimensions:
+  - name: GAME_A_ID
+    expr: GAME_A_ID
+    data_type: NUMBER(38,0)
+    access_modifier: public_access
+  - name: GAME_A_NAME
+    expr: GAME_A_NAME
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+  - name: GAME_B_ID
+    expr: GAME_B_ID
+    data_type: NUMBER(38,0)
+    access_modifier: public_access
+  - name: GAME_B_NAME
+    expr: GAME_B_NAME
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+  facts:
+  - name: OVM_GENRE_OVERLAP
+    expr: GENRE_OVERLAP
+    data_type: FLOAT
+    access_modifier: public_access
+  - name: OVM_PLATFORM_OVERLAP
+    expr: PLATFORM_OVERLAP
+    data_type: FLOAT
+    access_modifier: public_access
+  - name: OVM_MECHANIC_OVERLAP
+    expr: MECHANIC_OVERLAP
+    data_type: FLOAT
+    access_modifier: public_access
+  - name: OVM_GAMEPLAY_OVERLAP
+    expr: GAMEPLAY_OVERLAP
+    data_type: FLOAT
+    access_modifier: public_access
+  - name: OVM_CONTEXT_OVERLAP
+    expr: CONTEXT_OVERLAP
+    data_type: FLOAT
+    access_modifier: public_access
+  - name: OVM_POV_MATCH
+    expr: POV_MATCH
+    data_type: NUMBER(1,0)
+    access_modifier: public_access
+  - name: OVM_NARRATIVE_MATCH
+    expr: NARRATIVE_MATCH
+    data_type: NUMBER(1,0)
+    access_modifier: public_access
+- name: CANNIBALIZATION_CANDIDATES
+  description: Same-publisher game pairs similar enough to compete for the same players.
+  base_table:
+    database: ONTOLOGY_DEMO
+    schema: GAME_CATALOG
+    table: VW_CANNIBALIZATION_CANDIDATES
+  primary_key:
+    columns:
+    - GAME_A_NAME
+    - GAME_B_NAME
+  dimensions:
+  - name: GAME_A_NAME
+    expr: GAME_A_NAME
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+  - name: GAME_B_NAME
+    expr: GAME_B_NAME
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+  - name: PUBLISHER_NAME
+    expr: PUBLISHER_NAME
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+  - name: OVERLAP_TIER
+    expr: OVERLAP_TIER
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+  facts:
+  - name: CAN_WEIGHTED_OVERLAP
+    expr: WEIGHTED_OVERLAP
+    data_type: FLOAT
+    access_modifier: public_access
+  - name: CAN_GENRE_OVERLAP
+    expr: GENRE_OVERLAP
+    data_type: FLOAT
+    access_modifier: public_access
+  - name: CAN_PLATFORM_OVERLAP
+    expr: PLATFORM_OVERLAP
+    data_type: FLOAT
+    access_modifier: public_access
+  - name: CAN_MECHANIC_OVERLAP
+    expr: MECHANIC_OVERLAP
+    data_type: FLOAT
+    access_modifier: public_access
+  - name: CAN_GAMEPLAY_OVERLAP
+    expr: GAMEPLAY_OVERLAP
+    data_type: FLOAT
+    access_modifier: public_access
+  metrics:
+  - name: CANNIBALIZATION_PAIR_COUNT
+    expr: COUNT(cannibalization_candidates.GAME_A_NAME)
+    access_modifier: public_access
+relationships:
+- name: GENRE_GAME
+  left_table: GENRE_CLASSIFICATION
+  right_table: GAMES
+  relationship_columns:
+  - left_column: GAME_ID
+    right_column: GAME_ID
+- name: GENRE_ROLLUP_GAME
+  left_table: GENRE_ROLLUP
+  right_table: GAMES
+  relationship_columns:
+  - left_column: GAME_ID
+    right_column: GAME_ID
+- name: CLASSIFICATION_RULE
+  left_table: GENRE_CLASSIFICATION
+  right_table: GENRE_RULES
+  relationship_columns:
+  - left_column: GENRE
+    right_column: GENRE
+- name: ROLLUP_HIERARCHY
+  left_table: GENRE_ROLLUP
+  right_table: GENRE_HIERARCHY
+  relationship_columns:
+  - left_column: ROLLUP_GENRE
+    right_column: GENRE
+- name: MECHANIC_GAME
+  left_table: GAME_MECHANICS
+  right_table: GAMES
+  relationship_columns:
+  - left_column: GAME_ID
+    right_column: GAME_ID
+- name: MECHANIC_DETAIL
+  left_table: GAME_MECHANICS
+  right_table: MECHANICS
+  relationship_columns:
+  - left_column: MECHANIC_ID
+    right_column: MECHANIC_ID
+- name: GAMEPLAY_GAME
+  left_table: GAME_GAMEPLAY
+  right_table: GAMES
+  relationship_columns:
+  - left_column: GAME_ID
+    right_column: GAME_ID
+- name: GAMEPLAY_DETAIL
+  left_table: GAME_GAMEPLAY
+  right_table: GAMEPLAY_TYPES
+  relationship_columns:
+  - left_column: GAMEPLAY_TYPE_ID
+    right_column: GAMEPLAY_TYPE_ID
+- name: CONTEXT_GAME
+  left_table: GAME_CONTEXTS
+  right_table: GAMES
+  relationship_columns:
+  - left_column: GAME_ID
+    right_column: GAME_ID
+- name: CONTEXT_DETAIL
+  left_table: GAME_CONTEXTS
+  right_table: CONTEXTS
+  relationship_columns:
+  - left_column: CONTEXT_ID
+    right_column: CONTEXT_ID
+- name: SIMILARITY_GAME
+  left_table: GAME_SIMILARITY
+  right_table: GAMES
+  relationship_columns:
+  - left_column: GAME_A_ID
+    right_column: GAME_ID
+- name: OVERLAP_GAME
+  left_table: GAME_OVERLAP_MATRIX
+  right_table: GAMES
+  relationship_columns:
+  - left_column: GAME_A_ID
+    right_column: GAME_ID

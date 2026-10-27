@@ -1,4 +1,4 @@
-CREATE OR REPLACE VIEW ONTOLOGY_DEMO.GAME_CATALOG.VW_GAME_OVERLAP_MATRIX (
+create or replace view ONTOLOGY_DEMO.GAME_CATALOG.VW_GAME_OVERLAP_MATRIX(
 	GAME_A_ID,
 	GAME_A_NAME,
 	GAME_B_ID,
@@ -10,8 +10,8 @@ CREATE OR REPLACE VIEW ONTOLOGY_DEMO.GAME_CATALOG.VW_GAME_OVERLAP_MATRIX (
 	CONTEXT_OVERLAP,
 	POV_MATCH,
 	NARRATIVE_MATCH
-) COMMENT = 'The table contains records of game overlap matrices, specifically comparisons between different games. Each record represents a pair of games and includes details about their shared genres, platforms, mechanics, gameplay, and other characteristics.'
-AS
+) COMMENT='The table contains records of game overlap matrices, specifically comparisons between different games. Each record represents a pair of games and includes details about their shared genres, platforms, mechanics, gameplay, and other characteristics.'
+ as
 WITH game_genres AS (
     SELECT GAME_ID, ARRAY_AGG(DISTINCT GENRE) AS GENRES
     FROM ONTOLOGY_DEMO.GAME_CATALOG.GAME_GENRE_CLASSIFICATION

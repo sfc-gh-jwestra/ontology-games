@@ -1,0 +1,701 @@
+# Semantic view ONTOLOGY_DEMO.GAME_CATALOG.SV_GAME_CATALOG
+name: SV_GAME_CATALOG
+description: 'Business Ontology domain: Game Catalog. Catalog games, franchises, ratings, engines, modes, platforms, monetization, awards, accessibility and input devices (GAME_CATALOG).'
+tables:
+- name: GAMES
+  base_table:
+    database: ONTOLOGY_DEMO
+    schema: GAME_CATALOG
+    table: GAMES
+  primary_key:
+    columns:
+    - GAME_ID
+  dimensions:
+  - name: DEVELOPER_NAME
+    expr: DEVELOPER_NAME
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+  - name: FRANCHISE_NAME
+    expr: FRANCHISE_NAME
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+  - name: GAME_ID
+    expr: GAME_ID
+    data_type: NUMBER(38,0)
+    access_modifier: public_access
+  - name: GAME_NAME
+    expr: GAME_NAME
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+  - name: POV
+    expr: POV
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+  - name: PUBLISHER_NAME
+    expr: PUBLISHER_NAME
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+  - name: RELEASE_DATE
+    expr: RELEASE_DATE
+    data_type: DATE
+    access_modifier: public_access
+  - name: STATUS
+    expr: STATUS
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+  metrics:
+  - name: GAME_COUNT
+    expr: COUNT(games.GAME_ID)
+    access_modifier: public_access
+- name: GAME_FRANCHISES
+  base_table:
+    database: ONTOLOGY_DEMO
+    schema: GAME_CATALOG
+    table: GAME_FRANCHISES
+  primary_key:
+    columns:
+    - GAME_ID
+  dimensions:
+  - name: RELATED_GAME_ID
+    expr: RELATED_GAME_ID
+    data_type: NUMBER(38,0)
+    access_modifier: public_access
+  - name: RELATIONSHIP_TYPE
+    expr: RELATIONSHIP_TYPE
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+- name: AGE_RATINGS
+  description: Age rating values per rating system (ESRB, PEGI and so on).
+  base_table:
+    database: ONTOLOGY_DEMO
+    schema: GAME_CATALOG
+    table: AGE_RATINGS
+  primary_key:
+    columns:
+    - RATING_ID
+  dimensions:
+  - name: RATING_ID
+    expr: RATING_ID
+    data_type: NUMBER(38,0)
+    access_modifier: public_access
+  - name: RATING_SYSTEM
+    expr: RATING_SYSTEM
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+  - name: RATING_VALUE
+    expr: RATING_VALUE
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+  - name: MIN_AGE
+    expr: MIN_AGE
+    data_type: NUMBER(38,0)
+    access_modifier: public_access
+  - name: DESCRIPTION
+    expr: DESCRIPTION
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+- name: GAME_RATINGS
+  description: Age rating assigned to a game, with the date it took effect.
+  base_table:
+    database: ONTOLOGY_DEMO
+    schema: GAME_CATALOG
+    table: GAME_RATINGS
+  primary_key:
+    columns:
+    - GAME_ID
+    - RATING_ID
+  dimensions:
+  - name: GAME_ID
+    expr: GAME_ID
+    data_type: NUMBER(38,0)
+    access_modifier: public_access
+  - name: RATING_ID
+    expr: RATING_ID
+    data_type: NUMBER(38,0)
+    access_modifier: public_access
+  - name: EFFECTIVE_DATE
+    expr: EFFECTIVE_DATE
+    data_type: DATE
+    access_modifier: public_access
+  metrics:
+  - name: RATED_GAME_COUNT
+    expr: COUNT(DISTINCT game_ratings.GAME_ID)
+    access_modifier: public_access
+- name: ENGINES
+  description: Game engines and the company that makes each one.
+  base_table:
+    database: ONTOLOGY_DEMO
+    schema: GAME_CATALOG
+    table: ENGINES
+  primary_key:
+    columns:
+    - ENGINE_ID
+  dimensions:
+  - name: ENGINE_ID
+    expr: ENGINE_ID
+    data_type: NUMBER(38,0)
+    access_modifier: public_access
+  - name: ENGINE_NAME
+    expr: ENGINE_NAME
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+  - name: DEVELOPER_COMPANY
+    expr: DEVELOPER_COMPANY
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+  - name: SUPPORTS_RAY_TRACING
+    expr: SUPPORTS_RAY_TRACING
+    data_type: BOOLEAN
+    access_modifier: public_access
+- name: GAME_ENGINES
+  description: Engine used by each game, with version and whether it is a custom fork.
+  base_table:
+    database: ONTOLOGY_DEMO
+    schema: GAME_CATALOG
+    table: GAME_ENGINES
+  primary_key:
+    columns:
+    - GAME_ID
+    - ENGINE_ID
+  dimensions:
+  - name: GAME_ID
+    expr: GAME_ID
+    data_type: NUMBER(38,0)
+    access_modifier: public_access
+  - name: ENGINE_ID
+    expr: ENGINE_ID
+    data_type: NUMBER(38,0)
+    access_modifier: public_access
+  - name: ENGINE_VERSION
+    expr: ENGINE_VERSION
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+  - name: CUSTOM_FORK
+    expr: CUSTOM_FORK
+    data_type: BOOLEAN
+    access_modifier: public_access
+- name: GAME_MODES
+  description: Play modes per game (single-player, co-op, online and so on) with player limits.
+  base_table:
+    database: ONTOLOGY_DEMO
+    schema: GAME_CATALOG
+    table: GAME_MODES
+  primary_key:
+    columns:
+    - GAME_ID
+    - MODE_NAME
+  dimensions:
+  - name: GAME_ID
+    expr: GAME_ID
+    data_type: NUMBER(38,0)
+    access_modifier: public_access
+  - name: MODE_NAME
+    expr: MODE_NAME
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+  - name: ONLINE_REQUIRED
+    expr: ONLINE_REQUIRED
+    data_type: BOOLEAN
+    access_modifier: public_access
+  facts:
+  - name: MODE_MIN_PLAYERS
+    expr: MIN_PLAYERS
+    data_type: NUMBER(38,0)
+    access_modifier: public_access
+  - name: MODE_MAX_PLAYERS
+    expr: MAX_PLAYERS
+    data_type: NUMBER(38,0)
+    access_modifier: public_access
+  metrics:
+  - name: MAX_PLAYERS_SUPPORTED
+    expr: MAX(game_modes.MAX_PLAYERS)
+    access_modifier: public_access
+- name: CATALOG_MONETIZATION_TYPES
+  description: Catalog business-model tags (premium, free-to-play, battle pass and so on).
+  base_table:
+    database: ONTOLOGY_DEMO
+    schema: GAME_CATALOG
+    table: MONETIZATION_TYPES
+  primary_key:
+    columns:
+    - MONETIZATION_ID
+  dimensions:
+  - name: MONETIZATION_ID
+    expr: MONETIZATION_ID
+    data_type: NUMBER(38,0)
+    access_modifier: public_access
+  - name: MONETIZATION_NAME
+    expr: MONETIZATION_NAME
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+  - name: DESCRIPTION
+    expr: DESCRIPTION
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+- name: CATALOG_GAME_MONETIZATION
+  description: Business-model tags assigned to each catalog game.
+  base_table:
+    database: ONTOLOGY_DEMO
+    schema: GAME_CATALOG
+    table: GAME_MONETIZATION
+  primary_key:
+    columns:
+    - GAME_ID
+    - MONETIZATION_ID
+  dimensions:
+  - name: GAME_ID
+    expr: GAME_ID
+    data_type: NUMBER(38,0)
+    access_modifier: public_access
+  - name: MONETIZATION_ID
+    expr: MONETIZATION_ID
+    data_type: NUMBER(38,0)
+    access_modifier: public_access
+  metrics:
+  - name: MONETIZED_GAME_COUNT
+    expr: COUNT(DISTINCT catalog_game_monetization.GAME_ID)
+    access_modifier: public_access
+- name: CATALOG_PLATFORMS
+  description: Catalog list of platforms a game can be released on.
+  base_table:
+    database: ONTOLOGY_DEMO
+    schema: GAME_CATALOG
+    table: PLATFORMS
+  primary_key:
+    columns:
+    - PLATFORM_ID
+  dimensions:
+  - name: PLATFORM_ID
+    expr: PLATFORM_ID
+    data_type: NUMBER(38,0)
+    access_modifier: public_access
+  - name: PLATFORM_NAME
+    expr: PLATFORM_NAME
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+- name: CATALOG_GAME_PLATFORMS
+  description: Catalog game-platform releases with exclusivity details (boolean flag).
+  base_table:
+    database: ONTOLOGY_DEMO
+    schema: GAME_CATALOG
+    table: GAME_PLATFORMS
+  primary_key:
+    columns:
+    - GAME_PLATFORM_ID
+  dimensions:
+  - name: GAME_PLATFORM_ID
+    expr: GAME_PLATFORM_ID
+    data_type: NUMBER(38,0)
+    access_modifier: public_access
+  - name: GAME_ID
+    expr: GAME_ID
+    data_type: NUMBER(38,0)
+    access_modifier: public_access
+  - name: PLATFORM_ID
+    expr: PLATFORM_ID
+    data_type: NUMBER(38,0)
+    access_modifier: public_access
+  - name: IS_EXCLUSIVE
+    expr: IS_EXCLUSIVE
+    data_type: BOOLEAN
+    access_modifier: public_access
+  - name: EXCLUSIVITY_TYPE
+    expr: EXCLUSIVITY_TYPE
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+  - name: EXCLUSIVE_START
+    expr: EXCLUSIVE_START
+    data_type: DATE
+    access_modifier: public_access
+  - name: EXCLUSIVE_END
+    expr: EXCLUSIVE_END
+    data_type: DATE
+    access_modifier: public_access
+  - name: EXCLUSIVITY_NOTE
+    expr: EXCLUSIVITY_NOTE
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+  metrics:
+  - name: CATALOG_GAME_PLATFORM_COUNT
+    expr: COUNT(catalog_game_platforms.GAME_PLATFORM_ID)
+    access_modifier: public_access
+- name: STUDIO_ACQUISITIONS
+  description: Studios acquired by a publisher, with acquisition date and autonomy.
+  base_table:
+    database: ONTOLOGY_DEMO
+    schema: GAME_CATALOG
+    table: STUDIO_ACQUISITIONS
+  primary_key:
+    columns:
+    - PUBLISHER_ID
+    - DEVELOPER_ID
+  dimensions:
+  - name: PUBLISHER_ID
+    expr: PUBLISHER_ID
+    data_type: NUMBER(38,0)
+    access_modifier: public_access
+  - name: DEVELOPER_ID
+    expr: DEVELOPER_ID
+    data_type: NUMBER(38,0)
+    access_modifier: public_access
+  - name: STUDIO_NAME
+    expr: STUDIO_NAME
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+  - name: ACQUISITION_DATE
+    expr: ACQUISITION_DATE
+    data_type: DATE
+    access_modifier: public_access
+  - name: RETAINED_AUTONOMY
+    expr: RETAINED_AUTONOMY
+    data_type: BOOLEAN
+    access_modifier: public_access
+  metrics:
+  - name: ACQUISITION_COUNT
+    expr: COUNT(studio_acquisitions.DEVELOPER_ID)
+    access_modifier: public_access
+- name: ACCESSIBILITY_FEATURES
+  description: Accessibility features a game can support, grouped by category.
+  base_table:
+    database: ONTOLOGY_DEMO
+    schema: GAME_CATALOG
+    table: ACCESSIBILITY_FEATURES
+  primary_key:
+    columns:
+    - FEATURE_ID
+  dimensions:
+  - name: FEATURE_ID
+    expr: FEATURE_ID
+    data_type: NUMBER(38,0)
+    access_modifier: public_access
+  - name: FEATURE_NAME
+    expr: FEATURE_NAME
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+  - name: FEATURE_CATEGORY
+    expr: FEATURE_CATEGORY
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+- name: GAME_ACCESSIBILITY
+  description: Whether each game supports each accessibility feature.
+  base_table:
+    database: ONTOLOGY_DEMO
+    schema: GAME_CATALOG
+    table: GAME_ACCESSIBILITY
+  primary_key:
+    columns:
+    - GAME_ID
+    - FEATURE_ID
+  dimensions:
+  - name: GAME_ID
+    expr: GAME_ID
+    data_type: NUMBER(38,0)
+    access_modifier: public_access
+  - name: FEATURE_ID
+    expr: FEATURE_ID
+    data_type: NUMBER(38,0)
+    access_modifier: public_access
+  - name: IS_SUPPORTED
+    expr: IS_SUPPORTED
+    data_type: BOOLEAN
+    access_modifier: public_access
+- name: ACCESSIBILITY_GAPS
+  description: Accessibility features each game does not support.
+  base_table:
+    database: ONTOLOGY_DEMO
+    schema: GAME_CATALOG
+    table: VW_ACCESSIBILITY_GAPS
+  primary_key:
+    columns:
+    - GAME_ID
+    - FEATURE_ID
+  dimensions:
+  - name: GAME_ID
+    expr: GAME_ID
+    data_type: NUMBER(38,0)
+    access_modifier: public_access
+  - name: GAME_NAME
+    expr: GAME_NAME
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+  - name: FEATURE_ID
+    expr: FEATURE_ID
+    data_type: NUMBER(38,0)
+    access_modifier: public_access
+  - name: FEATURE_NAME
+    expr: FEATURE_NAME
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+  - name: FEATURE_CATEGORY
+    expr: FEATURE_CATEGORY
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+  - name: IS_SUPPORTED
+    expr: IS_SUPPORTED
+    data_type: BOOLEAN
+    access_modifier: public_access
+  metrics:
+  - name: ACCESSIBILITY_GAP_COUNT
+    expr: COUNT(accessibility_gaps.FEATURE_ID)
+    access_modifier: public_access
+- name: AWARDS
+  description: Industry awards and the body that grants them.
+  base_table:
+    database: ONTOLOGY_DEMO
+    schema: GAME_CATALOG
+    table: AWARDS
+  primary_key:
+    columns:
+    - AWARD_ID
+  dimensions:
+  - name: AWARD_ID
+    expr: AWARD_ID
+    data_type: NUMBER(38,0)
+    access_modifier: public_access
+  - name: AWARD_NAME
+    expr: AWARD_NAME
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+  - name: AWARDING_BODY
+    expr: AWARDING_BODY
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+- name: GAME_AWARDS
+  description: 'Award results per game and year: won or nominated.'
+  base_table:
+    database: ONTOLOGY_DEMO
+    schema: GAME_CATALOG
+    table: GAME_AWARDS
+  primary_key:
+    columns:
+    - GAME_ID
+    - AWARD_ID
+    - YEAR
+  dimensions:
+  - name: GAME_ID
+    expr: GAME_ID
+    data_type: NUMBER(38,0)
+    access_modifier: public_access
+  - name: AWARD_ID
+    expr: AWARD_ID
+    data_type: NUMBER(38,0)
+    access_modifier: public_access
+  - name: YEAR
+    expr: YEAR
+    data_type: NUMBER(38,0)
+    access_modifier: public_access
+  - name: WON_OR_NOMINATED
+    expr: WON_OR_NOMINATED
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+  metrics:
+  - name: AWARD_RESULT_COUNT
+    expr: COUNT(game_awards.AWARD_ID)
+    access_modifier: public_access
+- name: INPUT_DEVICES
+  description: Input devices (controllers, VR, motion and so on).
+  base_table:
+    database: ONTOLOGY_DEMO
+    schema: GAME_CATALOG
+    table: INPUT_DEVICES
+  primary_key:
+    columns:
+    - DEVICE_ID
+  dimensions:
+  - name: DEVICE_ID
+    expr: DEVICE_ID
+    data_type: NUMBER(38,0)
+    access_modifier: public_access
+  - name: DEVICE_NAME
+    expr: DEVICE_NAME
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+  - name: DEVICE_TYPE
+    expr: DEVICE_TYPE
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+- name: GAME_INPUT_DEVICES
+  description: Input devices each game supports, and which is primary.
+  base_table:
+    database: ONTOLOGY_DEMO
+    schema: GAME_CATALOG
+    table: GAME_INPUT_DEVICES
+  primary_key:
+    columns:
+    - GAME_INPUT_DEVICE_ID
+  dimensions:
+  - name: GAME_INPUT_DEVICE_ID
+    expr: GAME_INPUT_DEVICE_ID
+    data_type: NUMBER(38,0)
+    access_modifier: public_access
+  - name: GAME_ID
+    expr: GAME_ID
+    data_type: NUMBER(38,0)
+    access_modifier: public_access
+  - name: DEVICE_ID
+    expr: DEVICE_ID
+    data_type: NUMBER(38,0)
+    access_modifier: public_access
+  - name: IS_PRIMARY
+    expr: IS_PRIMARY
+    data_type: BOOLEAN
+    access_modifier: public_access
+- name: GAME_PROFILE
+  description: One row per game summarising POV, narrative, gameplay types, mechanics, contexts and multiplayer support.
+  base_table:
+    database: ONTOLOGY_DEMO
+    schema: GAME_CATALOG
+    table: VW_GAME_PROFILE
+  primary_key:
+    columns:
+    - GAME_ID
+  dimensions:
+  - name: GAME_ID
+    expr: GAME_ID
+    data_type: NUMBER(38,0)
+    access_modifier: public_access
+  - name: GAME_NAME
+    expr: GAME_NAME
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+  - name: POV
+    expr: POV
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+  - name: NARRATIVE
+    expr: NARRATIVE
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+  - name: GAMEPLAY_TYPE_LIST
+    expr: ARRAY_TO_STRING(GAMEPLAY_TYPES, ', ')
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+    description: Comma-separated gameplay types.
+  - name: MECHANIC_LIST
+    expr: ARRAY_TO_STRING(MECHANICS, ', ')
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+    description: Comma-separated mechanics.
+  - name: CONTEXT_LIST
+    expr: ARRAY_TO_STRING(CONTEXTS, ', ')
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+    description: Comma-separated contexts.
+  - name: HAS_ONLINE_MODE
+    expr: HAS_ONLINE_MODE
+    data_type: BOOLEAN
+    access_modifier: public_access
+  facts:
+  - name: PROFILE_MAX_PLAYER_COUNT
+    expr: MAX_PLAYER_COUNT
+    data_type: NUMBER(38,0)
+    access_modifier: public_access
+relationships:
+- name: FRANCHISE_GAME
+  left_table: GAME_FRANCHISES
+  right_table: GAMES
+  relationship_columns:
+  - left_column: GAME_ID
+    right_column: GAME_ID
+- name: RATING_GAME
+  left_table: GAME_RATINGS
+  right_table: GAMES
+  relationship_columns:
+  - left_column: GAME_ID
+    right_column: GAME_ID
+- name: RATING_VALUE
+  left_table: GAME_RATINGS
+  right_table: AGE_RATINGS
+  relationship_columns:
+  - left_column: RATING_ID
+    right_column: RATING_ID
+- name: ENGINE_GAME
+  left_table: GAME_ENGINES
+  right_table: GAMES
+  relationship_columns:
+  - left_column: GAME_ID
+    right_column: GAME_ID
+- name: ENGINE_DETAIL
+  left_table: GAME_ENGINES
+  right_table: ENGINES
+  relationship_columns:
+  - left_column: ENGINE_ID
+    right_column: ENGINE_ID
+- name: MODE_GAME
+  left_table: GAME_MODES
+  right_table: GAMES
+  relationship_columns:
+  - left_column: GAME_ID
+    right_column: GAME_ID
+- name: MONETIZATION_GAME
+  left_table: CATALOG_GAME_MONETIZATION
+  right_table: GAMES
+  relationship_columns:
+  - left_column: GAME_ID
+    right_column: GAME_ID
+- name: MONETIZATION_TYPE
+  left_table: CATALOG_GAME_MONETIZATION
+  right_table: CATALOG_MONETIZATION_TYPES
+  relationship_columns:
+  - left_column: MONETIZATION_ID
+    right_column: MONETIZATION_ID
+- name: CGP_GAME
+  left_table: CATALOG_GAME_PLATFORMS
+  right_table: GAMES
+  relationship_columns:
+  - left_column: GAME_ID
+    right_column: GAME_ID
+- name: CGP_PLATFORM
+  left_table: CATALOG_GAME_PLATFORMS
+  right_table: CATALOG_PLATFORMS
+  relationship_columns:
+  - left_column: PLATFORM_ID
+    right_column: PLATFORM_ID
+- name: ACCESSIBILITY_GAME
+  left_table: GAME_ACCESSIBILITY
+  right_table: GAMES
+  relationship_columns:
+  - left_column: GAME_ID
+    right_column: GAME_ID
+- name: ACCESSIBILITY_FEATURE
+  left_table: GAME_ACCESSIBILITY
+  right_table: ACCESSIBILITY_FEATURES
+  relationship_columns:
+  - left_column: FEATURE_ID
+    right_column: FEATURE_ID
+- name: GAP_GAME
+  left_table: ACCESSIBILITY_GAPS
+  right_table: GAMES
+  relationship_columns:
+  - left_column: GAME_ID
+    right_column: GAME_ID
+- name: AWARD_GAME
+  left_table: GAME_AWARDS
+  right_table: GAMES
+  relationship_columns:
+  - left_column: GAME_ID
+    right_column: GAME_ID
+- name: AWARD_DETAIL
+  left_table: GAME_AWARDS
+  right_table: AWARDS
+  relationship_columns:
+  - left_column: AWARD_ID
+    right_column: AWARD_ID
+- name: DEVICE_GAME
+  left_table: GAME_INPUT_DEVICES
+  right_table: GAMES
+  relationship_columns:
+  - left_column: GAME_ID
+    right_column: GAME_ID
+- name: DEVICE_DETAIL
+  left_table: GAME_INPUT_DEVICES
+  right_table: INPUT_DEVICES
+  relationship_columns:
+  - left_column: DEVICE_ID
+    right_column: DEVICE_ID
+- name: PROFILE_GAME
+  left_table: GAME_PROFILE
+  right_table: GAMES
+  relationship_columns:
+  - left_column: GAME_ID
+    right_column: GAME_ID

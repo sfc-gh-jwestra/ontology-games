@@ -1,8 +1,0 @@
-create or replace TABLE ONTOLOGY_DEMO.GAME_SALES_GEN.GEN_CATEGORY_WEIGHTS (
-	PROFILE VARCHAR(16777216) NOT NULL,
-	LIFECYCLE_TAG VARCHAR(16777216) NOT NULL,
-	CATEGORY_NAME VARCHAR(16777216) NOT NULL,
-	WEIGHT FLOAT NOT NULL,
-	primary key (PROFILE, LIFECYCLE_TAG, CATEGORY_NAME)
-)COMMENT='Share of a game-month target going to each revenue category, by monetization profile and lifecycle tag. BASE_GAME is split into BASE_GAME_DIGITAL / BASE_GAME_PHYSICAL by year.'
-;

@@ -1,45 +1,51 @@
-"""Snowflake credentials and connections for the local app.
+"""Snowflake connection for Live mode.
 
-Every call runs as the signed-in user with the OAuth access token from oauth.py:
-REST (Cortex Agents :run) sends it as a Bearer token; SQL uses authenticator="oauth".
-Settings come from backend/.env (see .env.example).
+There is no app login. Live runs use one named connection from ~/.snowflake/connections.toml
+(SNOWFLAKE_CONNECTION_NAME, default ONTOLOGY_DEMO_CONN), opened lazily on the first Live call and
+reused afterwards. With authenticator = externalbrowser that is one browser login per backend process.
+The session runs as APP_ROLE (default ONTOLOGY_APP_ROLE) with no secondary roles, like the batch eval.
+Recorded mode, Setup and Analysis never open a connection.
 """
 import os
-from dataclasses import dataclass
-from pathlib import Path
+import threading
 
 import snowflake.connector
-from dotenv import load_dotenv
 
-load_dotenv(Path(__file__).parent / ".env")
+CONNECTION_NAME = os.getenv("SNOWFLAKE_CONNECTION_NAME", "ONTOLOGY_DEMO_CONN")
+APP_ROLE = os.getenv("APP_ROLE", "ONTOLOGY_APP_ROLE")
+WAREHOUSE = os.getenv("APP_WAREHOUSE", "COMPUTE_WH")
 
-
-@dataclass
-class Credential:
-    token: str
-    token_type: str  # OAUTH
-    is_caller: bool
+_lock = threading.Lock()
+_conn = None
 
 
-def base_url() -> str:
-    return os.environ["SNOWFLAKE_ACCOUNT_URL"].rstrip("/")
+def is_connected() -> bool:
+    return _conn is not None and not _conn.is_closed()
 
 
-def rest_headers(cred: Credential) -> dict:
-    return {
-        "Authorization": f"Bearer {cred.token}",
-        "X-Snowflake-Authorization-Token-Type": cred.token_type,
-        "Content-Type": "application/json",
-        "Accept": "text/event-stream",
-    }
+def get_connection():
+    """Return the shared connection, opening it (browser login) on first use."""
+    global _conn
+    with _lock:
+        if not is_connected():
+            conn = snowflake.connector.connect(connection_name=CONNECTION_NAME, role=APP_ROLE,
+                                               warehouse=WAREHOUSE, client_session_keep_alive=True)
+            conn.cursor().execute("USE SECONDARY ROLES NONE")
+            _conn = conn
+        return _conn
 
 
-def sql_connection(cred: Credential, warehouse: str | None = None):
-    """Open a connector session with the user's OAuth token (role comes from the token scope)."""
-    wh = warehouse or os.getenv("SNOWFLAKE_WAREHOUSE")
-    return snowflake.connector.connect(
-        account=os.environ["SNOWFLAKE_ACCOUNT"],
-        authenticator="oauth",
-        token=cred.token,
-        **({"warehouse": wh} if wh else {}),
-    )
+def reset() -> None:
+    """Drop the shared connection (e.g. after its session expired); the next call reconnects."""
+    global _conn
+    with _lock:
+        if _conn is not None:
+            try:
+                _conn.close()
+            except Exception:
+                pass
+        _conn = None
+
+
+def info() -> dict:
+    return {"connected": is_connected(), "connection": CONNECTION_NAME, "role": APP_ROLE, "warehouse": WAREHOUSE}

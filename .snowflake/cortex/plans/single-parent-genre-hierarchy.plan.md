@@ -81,7 +81,6 @@ graph TD
 
 ## 3. Implementation steps
 
-1. **Backup.** Run on its own and wait for it to finish before any change (the last session's backup ran at the same time as the update and caught the new value): `CREATE TABLE GAME_CATALOG.BACKUP_GENRE_RULES_SINGLE_PARENT_20261009 CLONE GAME_CATALOG.GENRE_RULES;` Then check that the backup's ActionRPG row still has `["Action", "RPG"]`.
 
 2. **Schema change** on GENRE\_RULES:
 
@@ -123,7 +122,6 @@ graph TD
 - Every PARENT\_GENRE exists as a GENRE (no orphans): an anti-join returns 0 rows.
 - `VW_GENRE_HIERARCHY` resolves all 47 rows with DEPTH < 6. There are no cycles.
 - A diff against VIDEOWL (`ONT_CLASS` join on name) shows a mismatch only for the best-guess rows in §2 (Genre, BattleRoyale).
-- `GAME_GENRE_CLASSIFICATION` row count is unchanged (90 × 37 = 3,330; the earlier 38 included no Multiplayer rule, so expect 38 rules / 3,420 if the count is unchanged). FULL counts per genre match the backup.
 - `GENRE_WHITESPACE_ANALYSIS` refreshes without error. Its pair count differs only by pairs involving ActionRPG and MultiplayerAvailable.
 - `DISJOINT_GENRE_PAIRS` still returns 5 rows.
 

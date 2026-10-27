@@ -1,8 +1,9 @@
-CREATE OR REPLACE VIEW ONTOLOGY_DEMO.GAME_CATALOG.DISJOINT_GENRE_PAIRS (
+create or replace view ONTOLOGY_DEMO.GAME_CATALOG.DISJOINT_GENRE_PAIRS(
 	GENRE_A,
 	GENRE_B,
 	REASON
-) AS
+) COMMENT='The table contains records of relationships between different genres. Each record represents a pair of genres and includes the reason for their connection.'
+ as
 SELECT GENRE AS GENRE_A, TRIM(VALUE::STRING) AS GENRE_B,
        'Declared disjoint in GENRE_RULES' AS REASON
 FROM ONTOLOGY_DEMO.GAME_CATALOG.GENRE_RULES, LATERAL FLATTEN(INPUT => SPLIT(DISJOINT_WITH, ','))

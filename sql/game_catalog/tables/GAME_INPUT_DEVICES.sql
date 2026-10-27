@@ -1,7 +1,8 @@
-CREATE OR REPLACE TABLE ONTOLOGY_DEMO.GAME_CATALOG.GAME_INPUT_DEVICES (
-	GAME_INPUT_DEVICE_ID NUMBER(38,0) NOT NULL AUTOINCREMENT START 1 INCREMENT 1 NOORDER,
+create or replace TABLE ONTOLOGY_DEMO.GAME_CATALOG.GAME_INPUT_DEVICES (
+	GAME_INPUT_DEVICE_ID NUMBER(38,0) NOT NULL autoincrement start 1 increment 1 noorder,
 	GAME_ID NUMBER(38,0) NOT NULL,
 	DEVICE_ID NUMBER(38,0) NOT NULL,
 	IS_PRIMARY BOOLEAN DEFAULT FALSE,
-	PRIMARY KEY (GAME_INPUT_DEVICE_ID)
-) COMMENT = 'Bridge table linking games to supported input devices. IS_PRIMARY indicates the recommended input method.';
+	primary key (GAME_INPUT_DEVICE_ID)
+)COMMENT='Bridge table linking games to supported input devices. IS_PRIMARY indicates the recommended input method.'
+;

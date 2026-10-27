@@ -6,7 +6,6 @@ create or replace TABLE ONTOLOGY_DEMO.GAME_SALES.SUBSCRIPTION_PLANS (
 	BILLING_CYCLE VARCHAR(16777216),
 	LIST_PRICE FLOAT,
 	CURRENCY_CODE VARCHAR(3) DEFAULT 'USD',
-	primary key (PLAN_ID),
-	foreign key (GAME_ID) references ONTOLOGY_DEMO.GAME_SALES.GAMES(GAME_ID)
+	primary key (PLAN_ID)
 )COMMENT='Subscription plan catalog. GAME_ID null means a platform-wide plan (e.g. PS Plus Essential/Extra/Premium); non-null means a single game subscription. BILLING_CYCLE is MONTHLY, QUARTERLY, or ANNUAL.'
 ;

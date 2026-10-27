@@ -1,0 +1,609 @@
+# Semantic view ONTOLOGY_DEMO.GAME_SALES.SV_GAME_COMMERCE
+name: SV_GAME_COMMERCE
+description: 'Business Ontology domain: Game Commerce. Sales titles, products, transactions, hardware, subscriptions, monetization tags, revenue summaries and platform exclusivity (GAME_SALES). No link
+  to the Catalog.'
+tables:
+- name: CUSTOMERS
+  base_table:
+    database: ONTOLOGY_DEMO
+    schema: GAME_SALES
+    table: CUSTOMER_ACCOUNTS
+  primary_key:
+    columns:
+    - CUSTOMER_ID
+  dimensions:
+  - name: CUSTOMER_ID
+    expr: CUSTOMER_ID
+    data_type: NUMBER(38,0)
+    access_modifier: public_access
+  - name: REGION
+    expr: REGION
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+  - name: STATUS
+    expr: STATUS
+    data_type: VARCHAR(1)
+    access_modifier: public_access
+  metrics:
+  - name: CUSTOMER_COUNT
+    expr: COUNT(customers.CUSTOMER_ID)
+    access_modifier: public_access
+- name: DIGITAL_PRODUCTS
+  base_table:
+    database: ONTOLOGY_DEMO
+    schema: GAME_SALES
+    table: DIGITAL_PRODUCTS
+  primary_key:
+    columns:
+    - DIGITAL_PRODUCT_ID
+  dimensions:
+  - name: DIGITAL_PRODUCT_ID
+    expr: DIGITAL_PRODUCT_ID
+    data_type: NUMBER(38,0)
+    access_modifier: public_access
+  - name: PRODUCT_NAME
+    expr: PRODUCT_NAME
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+  - name: SKU_CODE
+    expr: SKU_CODE
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+  - name: STATUS
+    expr: STATUS
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+  metrics:
+  - name: PRODUCT_COUNT
+    expr: COUNT(digital_products.DIGITAL_PRODUCT_ID)
+    access_modifier: public_access
+- name: DIGITAL_TRANSACTIONS
+  base_table:
+    database: ONTOLOGY_DEMO
+    schema: GAME_SALES
+    table: DIGITAL_PRODUCT_TRANSACTIONS
+  primary_key:
+    columns:
+    - TRANSACTION_ID
+  dimensions:
+  - name: TITLE_ID
+    expr: TITLE_ID
+    data_type: NUMBER(38,0)
+    access_modifier: public_access
+  - name: TRANSACTION_DATE
+    expr: TRANSACTION_TIMESTAMP::DATE
+    data_type: DATE
+    access_modifier: public_access
+  facts:
+  - name: GROSS_REVENUE_AMT
+    expr: GROSS_REVENUE
+    data_type: FLOAT
+    access_modifier: public_access
+  - name: NET_DEVELOPER_REVENUE_AMT
+    expr: NET_DEVELOPER_REVENUE
+    data_type: FLOAT
+    access_modifier: public_access
+  metrics:
+  - name: TOTAL_GROSS_REVENUE
+    expr: SUM(digital_transactions.gross_revenue_amt)
+    access_modifier: public_access
+  - name: TOTAL_NET_DEVELOPER_REVENUE
+    expr: SUM(digital_transactions.net_developer_revenue_amt)
+    access_modifier: public_access
+  - name: TRANSACTION_COUNT
+    expr: COUNT(digital_transactions.TRANSACTION_ID)
+    access_modifier: public_access
+- name: HARDWARE_PRODUCTS
+  base_table:
+    database: ONTOLOGY_DEMO
+    schema: GAME_SALES
+    table: HARDWARE_PRODUCTS
+  primary_key:
+    columns:
+    - HARDWARE_PRODUCT_ID
+  dimensions:
+  - name: PRODUCT_NAME
+    expr: PRODUCT_NAME
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+  - name: PRODUCT_TYPE
+    expr: PRODUCT_TYPE
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+- name: HARDWARE_SALES
+  base_table:
+    database: ONTOLOGY_DEMO
+    schema: GAME_SALES
+    table: HARDWARE_SALES_TRANSACTIONS
+  primary_key:
+    columns:
+    - TRANSACTION_ID
+  dimensions:
+  - name: REGION
+    expr: REGION
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+  - name: SALE_DATE
+    expr: SALE_TIMESTAMP::DATE
+    data_type: DATE
+    access_modifier: public_access
+  facts:
+  - name: HW_GROSS_REVENUE_AMT
+    expr: GROSS_REVENUE
+    data_type: FLOAT
+    access_modifier: public_access
+  metrics:
+  - name: HARDWARE_GROSS_REVENUE
+    expr: SUM(hardware_sales.hw_gross_revenue_amt)
+    access_modifier: public_access
+- name: REVENUE_TYPES
+  base_table:
+    database: ONTOLOGY_DEMO
+    schema: GAME_SALES
+    table: REVENUE_TYPES
+  primary_key:
+    columns:
+    - CATEGORY_ID
+  dimensions:
+  - name: CATEGORY_GROUP
+    expr: CATEGORY_GROUP
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+  - name: MONETIZATION_TYPE
+    expr: MONETIZATION_TYPE
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+- name: SALES_GAME_PLATFORMS
+  base_table:
+    database: ONTOLOGY_DEMO
+    schema: GAME_SALES
+    table: GAME_PLATFORMS
+  primary_key:
+    columns:
+    - GAME_PLATFORM_ID
+  dimensions:
+  - name: EXCLUSIVE_END
+    expr: EXCLUSIVE_END
+    data_type: DATE
+    access_modifier: public_access
+  - name: EXCLUSIVITY_TYPE
+    expr: EXCLUSIVITY_TYPE
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+  - name: IS_EXCLUSIVE
+    expr: IS_EXCLUSIVE
+    data_type: VARCHAR(1)
+    access_modifier: public_access
+  metrics:
+  - name: GAME_PLATFORM_COUNT
+    expr: COUNT(sales_game_platforms.GAME_PLATFORM_ID)
+    access_modifier: public_access
+- name: SALES_PLATFORMS
+  base_table:
+    database: ONTOLOGY_DEMO
+    schema: GAME_SALES
+    table: PLATFORMS
+  primary_key:
+    columns:
+    - PLATFORM_ID
+  dimensions:
+  - name: PLATFORM_CODE
+    expr: PLATFORM_CODE
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+  - name: PLATFORM_ID
+    expr: PLATFORM_ID
+    data_type: NUMBER(38,0)
+    access_modifier: public_access
+  - name: PLATFORM_NAME
+    expr: PLATFORM_NAME
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+- name: SUBSCRIPTION_CHARGES
+  base_table:
+    database: ONTOLOGY_DEMO
+    schema: GAME_SALES
+    table: SUBSCRIPTION_CHARGES
+  primary_key:
+    columns:
+    - CHARGE_ID
+  dimensions:
+  - name: CHARGE_DATE
+    expr: CHARGE_TIMESTAMP::DATE
+    data_type: DATE
+    access_modifier: public_access
+  facts:
+  - name: SUB_GROSS_REVENUE_AMT
+    expr: GROSS_REVENUE
+    data_type: FLOAT
+    access_modifier: public_access
+  metrics:
+  - name: SUBSCRIPTION_GROSS_REVENUE
+    expr: SUM(subscription_charges.sub_gross_revenue_amt)
+    access_modifier: public_access
+- name: SUBSCRIPTION_PLANS
+  base_table:
+    database: ONTOLOGY_DEMO
+    schema: GAME_SALES
+    table: SUBSCRIPTION_PLANS
+  primary_key:
+    columns:
+    - PLAN_ID
+  dimensions:
+  - name: PLAN_NAME
+    expr: PLAN_NAME
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+  - name: PLAN_TIER
+    expr: PLAN_TIER
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+- name: TITLES
+  base_table:
+    database: ONTOLOGY_DEMO
+    schema: GAME_SALES
+    table: TITLES
+  primary_key:
+    columns:
+    - TITLE_ID
+  dimensions:
+  - name: CATALOG_GAME_ID
+    expr: CATALOG_GAME_ID
+    data_type: NUMBER(38,0)
+    access_modifier: public_access
+  - name: PUBLISHER_LABEL
+    expr: PUBLISHER_LABEL
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+  - name: RELEASE_DATE
+    expr: RELEASE_DATE
+    data_type: VARCHAR(8)
+    access_modifier: public_access
+  - name: STUDIO
+    expr: STUDIO
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+  - name: TITLE_ID
+    expr: TITLE_ID
+    data_type: NUMBER(38,0)
+    access_modifier: public_access
+  - name: TITLE_NAME
+    expr: TITLE_NAME
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+  metrics:
+  - name: TITLE_COUNT
+    expr: COUNT(titles.TITLE_ID)
+    access_modifier: public_access
+- name: TITLE_CODE_XREF
+  base_table:
+    database: ONTOLOGY_DEMO
+    schema: GAME_SALES
+    table: TITLE_CODE_XREF
+  primary_key:
+    columns:
+    - TITLE_CODE
+  dimensions:
+  - name: CATALOG_GAME_ID
+    expr: CATALOG_GAME_ID
+    data_type: NUMBER(38,0)
+    access_modifier: public_access
+  - name: PLATFORM_CODE
+    expr: PLATFORM_CODE
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+  - name: TITLE_CODE
+    expr: TITLE_CODE
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+- name: SALES_MONETIZATION_TYPES
+  description: Sales copy of the business-model tags.
+  base_table:
+    database: ONTOLOGY_DEMO
+    schema: GAME_SALES
+    table: MONETIZATION_TYPES
+  primary_key:
+    columns:
+    - MONETIZATION_ID
+  dimensions:
+  - name: MONETIZATION_ID
+    expr: MONETIZATION_ID
+    data_type: NUMBER(38,0)
+    access_modifier: public_access
+  - name: MONETIZATION_NAME
+    expr: MONETIZATION_NAME
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+- name: SALES_GAME_MONETIZATION
+  description: Business-model tags per Sales title.
+  base_table:
+    database: ONTOLOGY_DEMO
+    schema: GAME_SALES
+    table: GAME_MONETIZATION
+  primary_key:
+    columns:
+    - TITLE_ID
+    - MONETIZATION_ID
+  dimensions:
+  - name: TITLE_ID
+    expr: TITLE_ID
+    data_type: NUMBER(38,0)
+    access_modifier: public_access
+  - name: MONETIZATION_ID
+    expr: MONETIZATION_ID
+    data_type: NUMBER(38,0)
+    access_modifier: public_access
+- name: MONTHLY_REVENUE
+  description: Monthly income per Sales title and revenue source, with running total.
+  base_table:
+    database: ONTOLOGY_DEMO
+    schema: GAME_SALES
+    table: MONTHLY_REVENUE
+  primary_key:
+    columns:
+    - TITLE_ID
+    - REVENUE_MONTH
+    - REVENUE_SOURCE
+  dimensions:
+  - name: TITLE_ID
+    expr: TITLE_ID
+    data_type: NUMBER(38,0)
+    access_modifier: public_access
+  - name: REVENUE_MONTH
+    expr: REVENUE_MONTH
+    data_type: DATE
+    access_modifier: public_access
+  - name: REVENUE_SOURCE
+    expr: REVENUE_SOURCE
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+  facts:
+  - name: MONTH_INCOME
+    expr: MONTHLY_INCOME
+    data_type: FLOAT
+    access_modifier: public_access
+  - name: MONTH_CUMULATIVE_INCOME
+    expr: CUMULATIVE_INCOME
+    data_type: FLOAT
+    access_modifier: public_access
+  metrics:
+  - name: TOTAL_MONTHLY_INCOME
+    expr: SUM(monthly_revenue.MONTHLY_INCOME)
+    access_modifier: public_access
+- name: QUARTERLY_REVENUE
+  description: Quarterly income per Sales title, with running total.
+  base_table:
+    database: ONTOLOGY_DEMO
+    schema: GAME_SALES
+    table: QUARTERLY_REVENUE
+  primary_key:
+    columns:
+    - TITLE_ID
+    - REVENUE_YEAR
+    - REVENUE_QUARTER
+  dimensions:
+  - name: TITLE_ID
+    expr: TITLE_ID
+    data_type: NUMBER(38,0)
+    access_modifier: public_access
+  - name: REVENUE_YEAR
+    expr: REVENUE_YEAR
+    data_type: NUMBER(4,0)
+    access_modifier: public_access
+  - name: REVENUE_QUARTER
+    expr: REVENUE_QUARTER
+    data_type: NUMBER(2,0)
+    access_modifier: public_access
+  facts:
+  - name: QUARTER_INCOME
+    expr: QUARTERLY_INCOME
+    data_type: FLOAT
+    access_modifier: public_access
+  - name: QUARTER_CUMULATIVE_INCOME
+    expr: CUMULATIVE_INCOME
+    data_type: FLOAT
+    access_modifier: public_access
+  metrics:
+  - name: TOTAL_QUARTERLY_INCOME
+    expr: SUM(quarterly_revenue.QUARTERLY_INCOME)
+    access_modifier: public_access
+- name: PLATFORM_EXCLUSIVITY
+  description: Sales title-platform pairs with exclusivity details, current-exclusive flag and title income.
+  base_table:
+    database: ONTOLOGY_DEMO
+    schema: GAME_SALES
+    table: VW_PLATFORM_EXCLUSIVITY
+  primary_key:
+    columns:
+    - TITLE_ID
+    - PLATFORM_ID
+  dimensions:
+  - name: TITLE_ID
+    expr: TITLE_ID
+    data_type: NUMBER(38,0)
+    access_modifier: public_access
+  - name: TITLE_NAME
+    expr: TITLE_NAME
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+  - name: PLATFORM_ID
+    expr: PLATFORM_ID
+    data_type: NUMBER(38,0)
+    access_modifier: public_access
+  - name: PLATFORM_NAME
+    expr: PLATFORM_NAME
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+  - name: IS_EXCLUSIVE
+    expr: IS_EXCLUSIVE
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+  - name: EXCLUSIVITY_TYPE
+    expr: EXCLUSIVITY_TYPE
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+  - name: EXCLUSIVE_START
+    expr: EXCLUSIVE_START
+    data_type: DATE
+    access_modifier: public_access
+  - name: EXCLUSIVE_END
+    expr: EXCLUSIVE_END
+    data_type: DATE
+    access_modifier: public_access
+  - name: EXCLUSIVITY_NOTE
+    expr: EXCLUSIVITY_NOTE
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+  - name: IS_CURRENTLY_EXCLUSIVE
+    expr: IS_CURRENTLY_EXCLUSIVE
+    data_type: BOOLEAN
+    access_modifier: public_access
+  facts:
+  - name: EXCL_TITLE_INCOME
+    expr: INCOME
+    data_type: FLOAT
+    access_modifier: public_access
+- name: PLATFORM_REVENUE_SUMMARY
+  description: Monthly gross and platform-retained revenue by revenue category group.
+  base_table:
+    database: ONTOLOGY_DEMO
+    schema: GAME_SALES
+    table: VW_PLATFORM_REVENUE_SUMMARY
+  primary_key:
+    columns:
+    - REVENUE_MONTH
+    - CATEGORY_GROUP
+  dimensions:
+  - name: REVENUE_MONTH
+    expr: REVENUE_MONTH
+    data_type: DATE
+    access_modifier: public_access
+  - name: CATEGORY_GROUP
+    expr: CATEGORY_GROUP
+    data_type: VARCHAR(16777216)
+    access_modifier: public_access
+  facts:
+  - name: SUMMARY_GROSS_REVENUE
+    expr: GROSS_REVENUE
+    data_type: FLOAT
+    access_modifier: public_access
+  - name: SUMMARY_PLATFORM_REVENUE
+    expr: PLATFORM_REVENUE
+    data_type: FLOAT
+    access_modifier: public_access
+  metrics:
+  - name: SUMMARY_TOTAL_GROSS
+    expr: SUM(platform_revenue_summary.GROSS_REVENUE)
+    access_modifier: public_access
+  - name: SUMMARY_TOTAL_PLATFORM
+    expr: SUM(platform_revenue_summary.PLATFORM_REVENUE)
+    access_modifier: public_access
+relationships:
+- name: PRODUCT_TITLE
+  left_table: DIGITAL_PRODUCTS
+  right_table: TITLES
+  relationship_columns:
+  - left_column: TITLE_ID
+    right_column: TITLE_ID
+- name: PRODUCT_TYPE
+  left_table: DIGITAL_PRODUCTS
+  right_table: REVENUE_TYPES
+  relationship_columns:
+  - left_column: CATEGORY_ID
+    right_column: CATEGORY_ID
+- name: TXN_CUSTOMER
+  left_table: DIGITAL_TRANSACTIONS
+  right_table: CUSTOMERS
+  relationship_columns:
+  - left_column: PLAYER_ID
+    right_column: CUSTOMER_ID
+- name: TXN_PLATFORM
+  left_table: DIGITAL_TRANSACTIONS
+  right_table: SALES_PLATFORMS
+  relationship_columns:
+  - left_column: PLATFORM_ID
+    right_column: PLATFORM_ID
+- name: TXN_PRODUCT
+  left_table: DIGITAL_TRANSACTIONS
+  right_table: DIGITAL_PRODUCTS
+  relationship_columns:
+  - left_column: DIGITAL_PRODUCT_ID
+    right_column: DIGITAL_PRODUCT_ID
+- name: HW_CUSTOMER
+  left_table: HARDWARE_SALES
+  right_table: CUSTOMERS
+  relationship_columns:
+  - left_column: BUYER_ID
+    right_column: CUSTOMER_ID
+- name: HW_PRODUCT
+  left_table: HARDWARE_SALES
+  right_table: HARDWARE_PRODUCTS
+  relationship_columns:
+  - left_column: HARDWARE_PRODUCT_ID
+    right_column: HARDWARE_PRODUCT_ID
+- name: SGP_PLATFORM
+  left_table: SALES_GAME_PLATFORMS
+  right_table: SALES_PLATFORMS
+  relationship_columns:
+  - left_column: PLATFORM_ID
+    right_column: PLATFORM_ID
+- name: SGP_TITLE
+  left_table: SALES_GAME_PLATFORMS
+  right_table: TITLES
+  relationship_columns:
+  - left_column: TITLE_ID
+    right_column: TITLE_ID
+- name: SUB_CUSTOMER
+  left_table: SUBSCRIPTION_CHARGES
+  right_table: CUSTOMERS
+  relationship_columns:
+  - left_column: SUBSCRIBER_ID
+    right_column: CUSTOMER_ID
+- name: SUB_PLAN
+  left_table: SUBSCRIPTION_CHARGES
+  right_table: SUBSCRIPTION_PLANS
+  relationship_columns:
+  - left_column: PLAN_ID
+    right_column: PLAN_ID
+- name: XREF_TITLE
+  left_table: TITLE_CODE_XREF
+  right_table: TITLES
+  relationship_columns:
+  - left_column: TITLE_ID
+    right_column: TITLE_ID
+- name: SGM_TITLE
+  left_table: SALES_GAME_MONETIZATION
+  right_table: TITLES
+  relationship_columns:
+  - left_column: TITLE_ID
+    right_column: TITLE_ID
+- name: SGM_TYPE
+  left_table: SALES_GAME_MONETIZATION
+  right_table: SALES_MONETIZATION_TYPES
+  relationship_columns:
+  - left_column: MONETIZATION_ID
+    right_column: MONETIZATION_ID
+- name: MONTHLY_TITLE
+  left_table: MONTHLY_REVENUE
+  right_table: TITLES
+  relationship_columns:
+  - left_column: TITLE_ID
+    right_column: TITLE_ID
+- name: QUARTERLY_TITLE
+  left_table: QUARTERLY_REVENUE
+  right_table: TITLES
+  relationship_columns:
+  - left_column: TITLE_ID
+    right_column: TITLE_ID
+- name: EXCL_TITLE
+  left_table: PLATFORM_EXCLUSIVITY
+  right_table: TITLES
+  relationship_columns:
+  - left_column: TITLE_ID
+    right_column: TITLE_ID
+- name: EXCL_PLATFORM
+  left_table: PLATFORM_EXCLUSIVITY
+  right_table: SALES_PLATFORMS
+  relationship_columns:
+  - left_column: PLATFORM_ID
+    right_column: PLATFORM_ID

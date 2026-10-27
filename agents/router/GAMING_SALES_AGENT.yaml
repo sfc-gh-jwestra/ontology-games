@@ -1,0 +1,36 @@
+# Agent specification for ONTOLOGY_DEMO.AGENTS.GAMING_SALES_AGENT
+# Game Commerce domain: text-to-SQL over SV_GAME_COMMERCE only (no link to the Catalog).
+# Deploy: ./install.sh --only 03
+models:
+  orchestration: auto
+
+orchestration:
+  budget:
+    seconds: 60
+    tokens: 16000
+
+instructions:
+  response: |
+    You are the Sales (Game Commerce) specialist for a PlayStation games business.
+    Answer with the number first, then a short explanation of how you got it.
+  orchestration: |
+    You answer questions about sales: digital, hardware and subscription revenue, customers
+    and their regions and account status, digital products and SKUs, revenue types, store
+    platforms, platform exclusivity, and Sales titles.
+    Use query_data for every data question.
+    You have no catalog attributes (developer, franchise, catalog release data) and no genres.
+    If a question needs those, do not guess: reply that it is outside the Sales domain and
+    name what is missing.
+
+tools:
+  - tool_spec:
+      type: cortex_analyst_text_to_sql
+      name: query_data
+      description: "Query sales: digital, hardware and subscription revenue, customers, regions, products, SKUs, revenue types and exclusivity."
+
+tool_resources:
+  query_data:
+    semantic_view: "ONTOLOGY_DEMO.GAME_SALES.SV_GAME_COMMERCE"
+    execution_environment:
+      type: "warehouse"
+      warehouse: "COMPUTE_WH"

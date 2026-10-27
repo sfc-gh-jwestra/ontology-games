@@ -3,3 +3,4 @@ frontend/dist/
 backend/static/
 backend/__pycache__/
 backend/.env
+.venv/
