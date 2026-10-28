@@ -84,7 +84,7 @@ async def cancel_run(run_id: str) -> None:
 
 def parse_response(r: dict) -> dict:
     """Answer text, every tool call in order (name, type, status, SQL or input, rows), SQL list and tokens."""
-    steps, by_id, text, hits = [], {}, [], []
+    steps, by_id, text, retrieved = [], {}, [], {}
     for c in r.get("content", []):
         t = c.get("type")
         if t == "text":
@@ -94,14 +94,18 @@ def parse_response(r: dict) -> dict:
             inp = u.get("input") or {}
             step = {"tool": u.get("name"), "type": u.get("type"), "sql": inp.get("sql"),
                     "input": None if inp.get("sql") else json.dumps(inp, ensure_ascii=False)[:600],
-                    "status": None, "rows": None}
+                    "status": None, "rows": None, "nodes": None}
             steps.append(step)
             by_id[u.get("tool_use_id")] = step
         elif t == "tool_result":
             tr = c.get("tool_result", {})
-            if tr.get("name") == "business_ontology":
-                hits += _ontology_names(json.dumps(tr.get("content", [])))
             step = by_id.get(tr.get("tool_use_id"))
+            if tr.get("name") == "business_ontology":
+                found = parse_ontology_result(tr.get("content", []))
+                for n in found:
+                    retrieved.setdefault(n["name"], n)
+                if step is not None:
+                    step["nodes"] = [n["name"] for n in found]
             if step is None:
                 continue
             step["status"] = tr.get("status")
@@ -121,9 +125,39 @@ def parse_response(r: dict) -> dict:
             "steps": steps, "tool_calls": len(steps),
             "tool_counts": {t: tools.count(t) for t in dict.fromkeys(tools)},
             "sql": [s["sql"] for s in steps if s["sql"]],
-            "ontology_hits": list(dict.fromkeys(hits))[:15]}
+            "ontology_retrieved": list(retrieved.values())}
 
 
-def _ontology_names(blob: str) -> list[str]:
-    # Search results render as "N. Domain.Name (KIND)"; keep the names.
-    return [m.group(2) for m in re.finditer(r"\d+\.\s+([A-Za-z ]+)\.([A-Za-z0-9 \-]+?) \((?:METRIC|ENTITY|TERM)\)", blob)]
+NODE_HEAD = re.compile(r"^\s*\d+\.\s+(.+?)\.(.+?) \((ENTITY|METRIC|TERM)\)\s*$")
+NODE_FIELD = re.compile(r"^\s+(Name|Domain|Definition|Formula|Synonyms):\s?(.*)$")
+DEF_CHARS = 500
+
+
+def parse_ontology_result(content: list) -> list[dict]:
+    """Parse a business_ontology search result into nodes.
+
+    The tool returns [{"type": "json", "json": {"message": "Found N object(s):\\n\\n1. Domain.Name (KIND)\\n
+       Name: ...\\n   Domain: ...\\n   Definition: ...\\n   Formula: ...\\n   Synonyms: ..."}}].
+    """
+    nodes = []
+    for item in content or []:
+        msg = (item.get("json") or {}).get("message") or item.get("text") or ""
+        node = None
+        for line in msg.splitlines():
+            head = NODE_HEAD.match(line)
+            if head:
+                node = {"name": head.group(2).strip(), "domain": head.group(1).strip(), "kind": head.group(3),
+                        "definition": "", "formula": "", "synonyms": []}
+                nodes.append(node)
+                continue
+            field = NODE_FIELD.match(line)
+            if node is None or not field:
+                continue
+            key, val = field.group(1), field.group(2).strip()
+            if key == "Definition":
+                node["definition"] = val[:DEF_CHARS]
+            elif key == "Formula":
+                node["formula"] = val
+            elif key == "Synonyms":
+                node["synonyms"] = [s.strip() for s in val.split(",") if s.strip()]
+    return nodes

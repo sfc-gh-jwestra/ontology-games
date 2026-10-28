@@ -22,6 +22,14 @@ ANSWERS = {
 }
 
 
+MOCK_ONTOLOGY = ("Found 3 object(s):\n\n1. Game Catalog.Game Identity Match Rule (TERM)\n   Name: Game Identity Match Rule\n"
+                 "   Domain: Game Catalog\n   Definition: Match sales titles to games by catalog id, then crosswalk, then name.\n\n"
+                 "2. Genre Taxonomy.Genre Roll-up Rule (TERM)\n   Name: Genre Roll-up Rule\n   Domain: Genre Taxonomy\n"
+                 "   Definition: Roll sub-genres up to their parent genre.\n\n"
+                 "3. Genre Taxonomy.Genre Revenue (METRIC)\n   Name: Genre Revenue\n   Domain: Genre Taxonomy\n"
+                 "   Definition: Revenue by parent genre.\n   Formula: SUM(REVENUE_USD) GROUP BY parent genre\n")
+
+
 async def fake_stream(side, question):
     text, tools, sql = ANSWERS[side]
     pace = 0.05 if side == "baseline" else 0.07
@@ -39,7 +47,8 @@ async def fake_stream(side, question):
         await asyncio.sleep(pace)
         yield "response.text.delta", {"text": word + " "}
     content = [{"type": "tool_use", "tool_use": {"name": n, "type": "mock", "tool_use_id": n, "input": {}}} for n in tools]
-    content += [{"type": "tool_result", "tool_result": {"name": n, "tool_use_id": n, "status": "success", "content": []}}
+    content += [{"type": "tool_result", "tool_result": {"name": n, "tool_use_id": n, "status": "success", "content":
+                 [{"type": "json", "json": {"message": MOCK_ONTOLOGY}}] if n == "business_ontology" else []}}
                 for n in tools]
     content += [{"type": "tool_use", "tool_use": {"name": "system_execute_sql", "type": "system_execute_sql",
                                                   "tool_use_id": "sql", "input": {"sql": sql}}},
@@ -53,7 +62,10 @@ def fake_judge(question, b, o):
     return {"baseline_score": 0.0, "baseline_verdict": "wrong", "ontology_score": 1.0, "ontology_verdict": "correct",
             "baseline_reason": "Mock: the baseline matched sales titles to games only by CATALOG_GAME_ID (8.4% low).",
             "ontology_reason": "Mock: the ontology agent applied the Game Identity Match Rule and the Genre Roll-up Rule.",
-            "headline": "Mock verdict: the ontology agent is correct; the baseline was naive."}
+            "headline": "Mock verdict: the ontology agent is correct; the baseline was naive.",
+            "ontology_contributions": [
+                {"node": "Game Identity Match Rule", "how": "Mock: COALESCE over catalog id, crosswalk and name matched every title."},
+                {"node": "Genre Roll-up Rule", "how": "Mock: rolled sub-genres up to Action before summing."}]}
 
 
 main.agents.stream_agent = fake_stream

@@ -8,6 +8,7 @@ Writes evaluations/results/<run_id>.json (+ latest.json) and a Markdown summary 
 
 Usage (repo root): python3 scripts/batch_eval.py [--connection NAME] [--role ROLE] [--only 1,5,7] [--workers 4]
                    python3 scripts/batch_eval.py --summarize evaluations/results/latest.json   (rebuild the .md only)
+                   python3 scripts/batch_eval.py --rejudge evaluations/results/latest.json     (judge recorded answers again)
 Connection defaults to SNOWFLAKE_CONNECTION_NAME, then ONTOLOGY_DEMO_CONN.
 """
 import argparse
@@ -29,6 +30,7 @@ BACKEND = ROOT / "app" / "backend"
 sys.path.insert(0, str(BACKEND))
 import agents as live_agents  # noqa: E402  shared response parser (same fields as Live mode)
 import judge as shared_judge  # noqa: E402  shared graded judge (same rubric as Live mode)
+import ontology_trace  # noqa: E402  how the ontology contributed (same as Live mode)
 
 JUDGE_MODEL = shared_judge.MODEL
 PASS = shared_judge.PASS
@@ -67,7 +69,7 @@ def run_agent(side, question, args):
 def judge(q, b, o, args):
     prompt = shared_judge.build_prompt(q, b, o)
     sql = shared_judge.JUDGE_SQL.replace("%(model)s", lit(JUDGE_MODEL)).replace("%(prompt)s", lit(prompt))
-    return shared_judge.parse_verdict(snow(sql, args)[0]["VERDICT"])
+    return shared_judge.keep_retrieved(shared_judge.parse_verdict(snow(sql, args)[0]["VERDICT"]), o)
 
 
 verdict = shared_judge.verdict
@@ -78,9 +80,12 @@ def challenge_key(tag):
     return (int(m.group(1)) if m else 9, 1 if tag.startswith("control") else 0)
 
 
-def evaluate(q, args):
+def evaluate(q, args, recorded=None):
     answers = {}
     for side in AGENTS:
+        if recorded:
+            answers[side] = recorded["answers"][side]
+            continue
         try:
             answers[side] = run_agent(side, q["question"], args)
         except Exception as exc:
@@ -93,6 +98,7 @@ def evaluate(q, args):
     for side in AGENTS:
         s = v.get(f"{side}_score")
         answers[side].update(score=s, verdict=verdict(s), judge_reason=v.get(f"{side}_reason"))
+    answers["ontology"]["ontology_trace"] = ontology_trace.contribution(q, answers["ontology"], v)
     print(f"  Q{q['id']:>2}  baseline {answers['baseline']['score']}  ontology {answers['ontology']['score']}", flush=True)
     return {"id": q["id"], "challenge": q["challenge"], "question": q["question"], "expected": q["expected"],
             "naive_trap": q["naive_trap"], "headline": v.get("headline"), "answers": answers}
@@ -139,7 +145,44 @@ def summary_md(run):
                       f"{a['judge_reason']}", "", f"Tools: {tools}", ""]
             for sql in a["sql"]:
                 lines += ["```sql", sql.strip(), "```", ""]
+    lines += ontology_md(run)
     return "\n".join(lines) + "\n"
+
+
+STATUS_MD = {"applied": "applied", "via": "applied via", "retrieved": "retrieved only", "missed": "missed"}
+
+
+def ontology_md(run):
+    """'How the ontology helped': applied nodes, expected coverage and relationships, grouped by challenge."""
+    rows = [r for r in run["results"] if r["answers"]["ontology"].get("ontology_trace")]
+    if not rows:
+        return []
+    lines = ["", "## How the ontology helped", "",
+             "For each question: the ontology nodes the judge says the agent applied and how, which expected nodes "
+             "were applied, only retrieved, or missed, and the relationships between them.", ""]
+    current = None
+    for r in sorted(rows, key=lambda r: (challenge_key(r["challenge"]), r["id"])):
+        t, a = r["answers"]["ontology"]["ontology_trace"], r["answers"]["ontology"]
+        group = f"C{challenge_key(r['challenge'])[0]}"
+        if group != current:
+            lines += [f"### {group}", ""]
+            current = group
+        cov = t["coverage"]
+        lines += [f"#### Q{r['id']}. {r['question']}", "",
+                  f"Ontology score {a['score']} ({a['verdict']}). Expected nodes applied: {cov['applied']}/{cov['expected']}"
+                  f" (directly {cov.get('direct', cov['applied'])}, via another node {cov.get('via', 0)}; retrieved but not applied: {cov['retrieved']}).", ""]
+        for n in t["applied"]:
+            formula = f" Formula: `{n['formula']}`." if n.get("formula") else ""
+            lines.append(f"- **{n['name']}** ({n['label']}): {n['how']}{formula}")
+        if not t["applied"]:
+            lines.append("- No ontology node was applied.")
+        lines.append("- Expected: " + ", ".join(f"{e['name']} ({STATUS_MD[e['status']]}{' ' + e['via'] if e.get('via') else ''})"
+                                               for e in t["expected"]))
+        if t["relationships"]:
+            lines.append("- Relationships: " + "; ".join(f"{e['source']} -> {e['type']} -> {e['target']}"
+                                                        for e in t["relationships"]))
+        lines.append("")
+    return lines
 
 
 def main():
@@ -150,6 +193,7 @@ def main():
     ap.add_argument("--only", help="comma-separated question ids")
     ap.add_argument("--workers", type=int, default=4)
     ap.add_argument("--summarize", metavar="RUN_JSON", help="only rebuild the Markdown summary from a results file")
+    ap.add_argument("--rejudge", metavar="RUN_JSON", help="judge the recorded answers again (no agent runs), as a new run")
     args = ap.parse_args()
     if args.summarize:
         run = json.loads(Path(args.summarize).read_text())
@@ -161,9 +205,16 @@ def main():
         keep = {int(x) for x in args.only.split(",")}
         qs = [q for q in qs if q["id"] in keep]
     run_id = dt.datetime.now().strftime("%Y%m%d_%H%M")
-    print(f"Batch eval {run_id}: {len(qs)} questions x {len(AGENTS)} agents")
-    with cf.ThreadPoolExecutor(args.workers) as ex:
-        results = list(ex.map(lambda q: evaluate(q, args), qs))
+    if args.rejudge:
+        old = {r["id"]: r for r in json.loads(Path(args.rejudge).read_text())["results"]}
+        qs = [q for q in qs if q["id"] in old]
+        print(f"Re-judge {run_id}: {len(qs)} recorded questions")
+        with cf.ThreadPoolExecutor(args.workers) as ex:
+            results = list(ex.map(lambda q: evaluate(q, args, old[q["id"]]), qs))
+    else:
+        print(f"Batch eval {run_id}: {len(qs)} questions x {len(AGENTS)} agents")
+        with cf.ThreadPoolExecutor(args.workers) as ex:
+            results = list(ex.map(lambda q: evaluate(q, args), qs))
     run = {"run_id": run_id, "judge_model": JUDGE_MODEL, "pass_threshold": PASS, "agents": AGENTS, "role": args.role,
            "results": sorted(results, key=lambda r: r["id"])}
     OUT.mkdir(parents=True, exist_ok=True)

@@ -33,7 +33,15 @@ uvicorn automatically.
 - **Judge:** `backend/judge.py` is shared with the batch eval, so Live and Recorded scores mean the same
   thing. One AI_COMPLETE call (claude-sonnet-4-5, temperature 0) scores each answer: 1.0 when amounts are
   within 1% of expected, 0.67 within 3%, 0.33 when the right answer is only an alternative, and 0
-  otherwise. Correct means 0.67 or higher.
+  otherwise. Correct means 0.67 or higher. It also lists `ontology_contributions`: the retrieved
+  ontology nodes the ontology agent actually applied, and how (nodes it never retrieved are dropped).
+- **Ontology contribution:** `backend/ontology_trace.py` turns that into the "How the Business Ontology
+  helped" box under each ontology answer: applied nodes with their kind (Class, Metric, Rule, Term),
+  definition and formula; the eval set's expected nodes marked applied, applied via (the logic is in the answer or SQL but another
+  node carried it, e.g. the match rule through Game Revenue's formula), retrieved only, or missed; and
+  the ontology relationships between them (from `scripts/build_ontology.py`). Each ontology search step
+  lists the nodes it returned, with the applied ones highlighted. Live gets it with the verdict;
+  Recorded and Analysis read it from `latest.json` (older runs show "not recorded").
 - **Questions:** parsed from `documentation/ontology_eval_set.md` when the backend starts. Edits to that
   file trigger a reload.
 
@@ -44,6 +52,7 @@ uvicorn automatically.
 | `backend/main.py` | FastAPI routes: `/api/questions`, `/api/recorded`, `/api/setup`, `/api/live-status`, `/api/compare` (SSE), cancel, SPA |
 | `backend/agents.py` | Agent runs via `DATA_AGENT_RUN` (async query, cancel); `parse_response`, shared with the batch eval |
 | `backend/judge.py` | Graded AI_COMPLETE judge, shared with the batch eval |
+| `backend/ontology_trace.py` | How the ontology contributed: applied nodes, expected coverage, relationships |
 | `backend/sf.py` | The lazy, shared Live connection |
 | `backend/setup_info.py` | Setup tab content from `semantic_views/`, `agents/`, `scripts/build_ontology.py` and the challenges README |
 | `backend/dev_mock.py` | Offline preview with fake Live agents and judge (no Snowflake) |

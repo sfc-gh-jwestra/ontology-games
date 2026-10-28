@@ -105,6 +105,7 @@ python3 scripts/batch_eval.py --only 3,5,6          # a subset of question ids
 python3 scripts/batch_eval.py --workers 2           # fewer parallel runs (default 4)
 python3 scripts/batch_eval.py --role <role> --warehouse <wh>   # defaults: ONTOLOGY_APP_ROLE, COMPUTE_WH
 python3 scripts/batch_eval.py --summarize evaluations/results/latest.json   # rebuild the .md only, no Snowflake
+python3 scripts/batch_eval.py --rejudge evaluations/results/latest.json     # grade the recorded answers again (13 judge calls, no agent runs)
 ```
 
 **What a run does:**
@@ -119,7 +120,7 @@ python3 scripts/batch_eval.py --summarize evaluations/results/latest.json   # re
   | 0.33 | The right answer appears only as an alternative |
   | 0 | Anything else |
 
-  A score of 0.67 or more counts as correct.
+  A score of 0.67 or more counts as correct. The judge also names the ontology nodes the ontology agent applied and how; `app/backend/ontology_trace.py` adds expected-node coverage and the relationships between those nodes.
 - Takes several minutes and uses credits: 26 agent runs plus 13 judge calls.
 
 **What it updates** (all under `evaluations/results/`):
@@ -127,14 +128,14 @@ python3 scripts/batch_eval.py --summarize evaluations/results/latest.json   # re
 | File | Contents | In git? |
 |---|---|---|
 | `<run_id>.json` | The full run, with `run_id` = `YYYYMMDD_HHMM` | No (ignored) |
-| `<run_id>.md` | A readable summary: scores by challenge C1-C7, then "Why answers failed" with the judge's reasons | No (ignored) |
+| `<run_id>.md` | A readable summary: scores by challenge C1-C7, then "Why answers failed" with the judge's reasons, then "How the ontology helped" (applied nodes, expected coverage, relationships) | No (ignored) |
 | `latest.json` | A copy of the newest run's JSON | **Yes** |
 
 `--only` runs also overwrite `latest.json`, so the app then shows only that subset.
 
 **How it changes the UI:** the app backend reads `latest.json` on every request, so the new run appears when you reload the page. You don't need to restart the app.
 - **Compare tab, Recorded mode:** each question shows the new answers, scores, judge reasons, tool calls and SQL. The scorecard by challenge and the batch run id under the picker both update.
-- **Analysis tab:** the stat cards and every question card (behaviour table, answers, reasons) show the new run.
+- **Analysis tab:** the stat cards (including expected ontology nodes applied) and every question card (behaviour table with the ontology nodes applied, answers, reasons, and the "How the Business Ontology helped" box) show the new run.
 - **Live mode** doesn't use `latest.json`. It runs the agents again and grades them with the same judge.
 
 To keep a run as the demo's default, commit the new `latest.json`. To go back to the committed one, run `git checkout evaluations/results/latest.json`.

@@ -1,7 +1,7 @@
 // Compare tab: pick a question, then show Recorded answers instantly or run both agents Live.
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  AGENT_INFO, Answer, byChallenge, challengeNum, getJSON, LiveStatus, Question, RecordedRun, Side, SIDES,
+  AGENT_INFO, Answer, byChallenge, challengeNum, getJSON, LiveStatus, OntologyTrace, Question, RecordedRun, Side, SIDES,
   streamCompare, StreamEvent, Verdict,
 } from "../api";
 import { AgentTrace, Markdown, ScoreBadge, toolLabel } from "./common";
@@ -78,7 +78,7 @@ export default function CompareView(props: { questions: Question[]; recorded: Re
     if (e.type === "verdict") {
       setJudging(false);
       if (e.error || !e.verdict) return setJudgeError(e.error ?? "no verdict");
-      return applyVerdict(e.verdict);
+      return applyVerdict(e.verdict, e.ontology_trace);
     }
     if (e.type === "done" || !e.side) return;
     const side = e.side;
@@ -100,14 +100,23 @@ export default function CompareView(props: { questions: Question[]; recorded: Re
     });
   }
 
-  function applyVerdict(v: Verdict) {
+  function applyVerdict(v: Verdict, trace?: OntologyTrace) {
     setShown((s) => (s ? { ...s, headline: v.headline ?? null } : s));
     setPanes((prev) => {
       const next = { ...prev };
       for (const side of SIDES) {
         const a = next[side].answer;
         if (a) {
-          next[side] = { ...next[side], answer: { ...a, score: v[`${side}_score`], verdict: v[`${side}_verdict`], judge_reason: v[`${side}_reason`] } };
+          next[side] = {
+            ...next[side],
+            answer: {
+              ...a,
+              score: v[`${side}_score`],
+              verdict: v[`${side}_verdict`],
+              judge_reason: v[`${side}_reason`],
+              ...(side === "ontology" && trace ? { ontology_trace: trace } : {}),
+            },
+          };
         }
       }
       return next;
@@ -128,9 +137,13 @@ export default function CompareView(props: { questions: Question[]; recorded: Re
       await streamCompare(body, onEvent, ctrl.signal);
     } catch (err) {
       if (!ctrl.signal.aborted) {
+        // fetch() throws TypeError when the backend is down or restarts mid-run (uvicorn --reload).
+        const msg = err instanceof TypeError
+          ? "Lost the connection to the backend on :8080. Check that `bash app/dev.sh` is still running, then ask again."
+          : String(err);
         setPanes((prev) => {
           const next = { ...prev };
-          for (const s of SIDES) if (next[s].status === "running") next[s] = { ...next[s], status: "error", error: String(err) };
+          for (const s of SIDES) if (next[s].status === "running") next[s] = { ...next[s], status: "error", error: msg };
           return next;
         });
       }

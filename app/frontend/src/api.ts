@@ -21,6 +21,27 @@ export interface Step {
   input: string | null;
   status: string | null;
   rows: number | null;
+  /** Node names a business_ontology search returned. */
+  nodes?: string[] | null;
+}
+
+/** A node returned by an ontology search. */
+export interface OntologyNode {
+  name: string;
+  domain: string;
+  kind: "ENTITY" | "METRIC" | "TERM";
+  definition: string;
+  formula: string;
+  synonyms: string[];
+}
+
+/** How the ontology contributed to one answer (app/backend/ontology_trace.py). */
+export interface OntologyTrace {
+  applied: { name: string; kind: string; label: string; how: string; formula: string; definition: string; domain: string }[];
+  expected: { name: string; status: "applied" | "via" | "retrieved" | "missed"; via?: string; evidence?: string; in_ontology: boolean }[];
+  relationships: { source: string; type: string; target: string }[];
+  retrieved: { name: string; label: string }[];
+  coverage: { applied: number; direct?: number; via?: number; retrieved: number; missed?: number; expected: number };
 }
 
 export type VerdictLabel = "correct" | "partial" | "wrong" | null;
@@ -34,7 +55,8 @@ export interface Answer {
   tool_calls: number;
   tool_counts: Record<string, number>;
   sql: string[];
-  ontology_hits?: string[];
+  ontology_retrieved?: OntologyNode[];
+  ontology_trace?: OntologyTrace;
   score?: number | null;
   verdict?: VerdictLabel;
   judge_reason?: string | null;
@@ -67,6 +89,7 @@ export interface Verdict {
   baseline_reason?: string;
   ontology_reason?: string;
   headline?: string;
+  ontology_contributions?: { node: string; how: string }[];
 }
 
 export interface StreamEvent {
@@ -80,6 +103,7 @@ export interface StreamEvent {
   ms?: number;
   final?: Answer;
   verdict?: Verdict;
+  ontology_trace?: OntologyTrace;
   error?: string;
   compare_id?: string;
 }

@@ -23,6 +23,7 @@ from pydantic import BaseModel
 
 import agents
 import judge
+import ontology_trace
 import questions as eval_questions
 import setup_info
 import sf
@@ -133,7 +134,8 @@ async def _compare_stream(question: dict, compare_id: str):
             yield _sse({"type": "verdict_pending"})
             try:
                 verdict = await asyncio.to_thread(judge.judge, question, b, o)
-                yield _sse({"type": "verdict", "verdict": verdict})
+                trace = ontology_trace.contribution(question, o, verdict)
+                yield _sse({"type": "verdict", "verdict": verdict, "ontology_trace": trace})
             except Exception as exc:
                 yield _sse({"type": "verdict", "error": str(exc)})
         yield _sse({"type": "done"})

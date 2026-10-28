@@ -18,6 +18,11 @@ export default function AnalysisView(props: {
     calls: rows.reduce((t, r) => t + r.answers[side].tool_calls, 0) / Math.max(n, 1),
   });
   const ontologyOnly = rows.filter((r) => r.answers.ontology.verdict === "correct" && r.answers.baseline.verdict !== "correct");
+  const traced = rows.filter((r) => r.answers.ontology.ontology_trace);
+  const cov = traced.reduce(
+    (t, r) => ({ a: t.a + r.answers.ontology.ontology_trace!.coverage.applied, e: t.e + r.answers.ontology.ontology_trace!.coverage.expected }),
+    { a: 0, e: 0 },
+  );
   const groups = new Map<number, RecordedResult[]>();
   for (const r of rows) groups.set(challengeNum(r.challenge), [...(groups.get(challengeNum(r.challenge)) ?? []), r]);
 
@@ -51,6 +56,11 @@ export default function AnalysisView(props: {
           <div className="stat-value">{groups.size}</div>
           <div className="muted small">Challenges covered</div>
         </div>
+        <div className="card stat">
+          <div className="stat-value" style={{ color: "var(--sense)" }}>{traced.length ? `${cov.a}/${cov.e}` : "-"}</div>
+          <div className="muted small">Expected ontology logic covered</div>
+          {!traced.length && <div className="tiny">Not recorded in this run; re-run the batch eval</div>}
+        </div>
       </section>
 
       {[...groups.entries()].map(([num, rs]) => (
@@ -76,7 +86,7 @@ function QuestionCard({ result }: { result: RecordedResult }) {
       </div>
       <table className="behavior">
         <thead>
-          <tr><th>Agent</th><th>Score</th><th>Tool calls</th><th>Tools used</th><th>Tables touched</th><th>Tokens</th><th>Time</th></tr>
+          <tr><th>Agent</th><th>Score</th><th>Tool calls</th><th>Tools used</th><th>Tables touched</th><th>Ontology nodes applied</th><th>Tokens</th><th>Time</th></tr>
         </thead>
         <tbody>
           {SIDES.map((side) => {
@@ -88,6 +98,9 @@ function QuestionCard({ result }: { result: RecordedResult }) {
                 <td>{a.tool_calls}</td>
                 <td className="small">{Object.entries(a.tool_counts).map(([t, c]) => `${toolLabel(t)}${c > 1 ? ` x${c}` : ""}`).join(", ") || "none"}</td>
                 <td className="mono tiny">{tablesTouched(a).join(", ") || "-"}</td>
+                <td className="tiny">
+                  {side === "baseline" ? "n/a" : a.ontology_trace ? a.ontology_trace.applied.map((n) => n.name).join(", ") || "none" : "not recorded"}
+                </td>
                 <td className="small">{((a.tokens.input ?? 0) + (a.tokens.output ?? 0)).toLocaleString()}</td>
                 <td className="small">{a.elapsed}s</td>
               </tr>

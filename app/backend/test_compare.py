@@ -98,12 +98,19 @@ def test_parse_response():
         {"type": "text", "text": "A"},
         {"type": "tool_use", "tool_use": {"name": "business_ontology", "tool_use_id": "b", "input": {"query": "q"}}},
         {"type": "tool_result", "tool_result": {"name": "business_ontology", "tool_use_id": "b", "status": "success", "content": [
-            {"type": "text", "text": "1. Genre Taxonomy.Genre Revenue (METRIC)\n2. Game Catalog.Game Identity Match Rule (TERM)"}]}},
+            {"type": "json", "json": {"message": "Found 2 object(s):\n\n1. Genre Taxonomy.Genre Revenue (METRIC)\n"
+             "   Name: Genre Revenue\n   Domain: Genre Taxonomy\n   Definition: Revenue by genre.\n"
+             "   Formula: SUM(REVENUE_USD) GROUP BY GENRE\n   Synonyms: Revenue by Genre, Genre Sales\n\n"
+             "2. Game Catalog.Game Identity Match Rule (TERM)\n   Name: Game Identity Match Rule\n"
+             "   Domain: Game Catalog\n   Definition: Match games on title and release year.\n"}}]}},
         {"type": "tool_use", "tool_use": {"name": "system_execute_sql", "tool_use_id": "s", "input": {"sql": "SELECT 2"}}},
     ], "status": "completed", "metadata": {"usage": {"tokens_consumed": [
         {"input_tokens": {"total": 10}, "output_tokens": {"total": 3}}]}}})
     assert s["text"] == "A" and s["sql"] == ["SELECT 2"]
-    assert s["ontology_hits"] == ["Genre Revenue", "Game Identity Match Rule"]
+    assert [n["name"] for n in s["ontology_retrieved"]] == ["Genre Revenue", "Game Identity Match Rule"]
+    rev = s["ontology_retrieved"][0]
+    assert rev["kind"] == "METRIC" and rev["formula"].startswith("SUM(") and rev["synonyms"] == ["Revenue by Genre", "Genre Sales"]
+    assert s["steps"][0]["nodes"] == ["Genre Revenue", "Game Identity Match Rule"]
     assert s["tool_counts"] == {"business_ontology": 1, "system_execute_sql": 1}
     assert s["tokens"] == {"input": 10, "output": 3}
 
@@ -112,6 +119,40 @@ def test_judge_prompt_and_verdict():
     p = judge.build_prompt({"question": "Q?", "expected": "$1"}, {"text": "b", "sql": []}, {"text": "o", "sql": ["S"]})
     assert "EXPECTED ANSWER: $1" in p and "within 1%" in p
     assert [judge.verdict(x) for x in (1, 0.67, 0.33, 0, None)] == ["correct", "correct", "partial", "wrong", None]
+
+
+def test_judge_keeps_only_retrieved_nodes():
+    o = {"ontology_retrieved": [{"name": "Genre Revenue", "kind": "METRIC", "formula": "SUM(X)"}]}
+    assert "Genre Revenue (METRIC): formula SUM(X)" in judge.build_prompt({"question": "Q"}, {"text": ""}, o)
+    v = judge.keep_retrieved({"ontology_contributions": [{"node": "genre revenue", "how": "summed"},
+                                                         {"node": "Genre Revenue (METRIC)", "how": "dup"},
+                                                         {"node": "Made Up Node", "how": "x"}]}, o)
+    assert v["ontology_contributions"] == [{"node": "Genre Revenue", "how": "summed"}]
+
+
+def test_ontology_trace():
+    import ontology_trace
+    assert ontology_trace.expected_names("Game Identity Match Rule (crosswalk route); RPG term; Engine") == \
+        ["Game Identity Match Rule", "RPG", "Engine"]
+    t = ontology_trace.contribution(
+        {"fixing_nodes": "Game Identity Match Rule; Title Code; Engine"},
+        {"ontology_retrieved": [{"name": "Engine", "kind": "ENTITY"}, {"name": "Game Identity Match Rule", "kind": "TERM"},
+                                {"name": "Game", "kind": "ENTITY"}]},
+        {"ontology_contributions": [{"node": "Game Identity Match Rule", "how": "crosswalk join"}]})
+    assert t["applied"][0]["label"] == "Rule" and t["applied"][0]["definition"]
+    assert [(e["name"], e["status"]) for e in t["expected"]] == \
+        [("Game Identity Match Rule", "applied"), ("Title Code", "missed"), ("Engine", "retrieved")]
+    assert t["coverage"] == {"applied": 1, "direct": 1, "via": 0, "retrieved": 1, "missed": 1, "expected": 3}
+    assert {"source": "Game Identity Match Rule", "type": "APPLIES_TO", "target": "Game"} == t["relationships"][0]
+    # Logic present but the node not retrieved: "applied via" the carrying node, counted as covered.
+    v = ontology_trace.contribution(
+        {"fixing_nodes": "Game Identity Match Rule; Game Revenue"},
+        {"ontology_retrieved": [{"name": "Game Revenue", "kind": "METRIC"}]},
+        {"ontology_contributions": [{"node": "Game Revenue", "how": "sum"}],
+         "expected_logic": [{"node": "Game Identity Match Rule (crosswalk)", "present": True, "via": "Game Revenue",
+                             "evidence": "COALESCE over catalog id, xref and name"}]})
+    assert [(e["status"], e["via"]) for e in v["expected"]] == [("via", "Game Revenue"), ("applied", "")]
+    assert v["coverage"]["applied"] == 2 and v["coverage"]["via"] == 1 and v["coverage"]["missed"] == 0
 
 
 if __name__ == "__main__":

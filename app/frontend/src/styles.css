@@ -143,3 +143,21 @@ select, input { border: 1px solid var(--border); background: var(--bg); border-r
 .arch-arrow { font-size: 22px; color: var(--text-muted); }
 .challenge-row { display: flex; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); align-items: flex-start; }
 .challenge-row .pill { margin-top: 2px; }
+
+/* Ontology contribution box */
+.onto-box { border: 1px solid var(--border); border-left: 3px solid var(--sense); border-radius: 6px; padding: 8px 10px; margin: 8px 0; }
+.onto-title { font-weight: 600; margin-bottom: 4px; }
+.onto-applied { margin: 4px 0; padding-left: 18px; }
+.onto-applied li { margin: 3px 0; }
+.kind { font-size: 10px; text-transform: uppercase; padding: 1px 5px; border-radius: 4px; background: var(--border); }
+.kind-class { background: #e3f2fd; color: #1565c0; }
+.kind-metric { background: #e8f5e9; color: #2e7d32; }
+.kind-rule { background: #fff3e0; color: #e65100; }
+.kind-term { background: #f3e5f5; color: #6a1b9a; }
+.node { display: inline-block; font-size: 11px; padding: 1px 6px; margin: 2px 3px 2px 0; border-radius: 4px; background: var(--border); }
+.node-applied { background: var(--ok-bg); color: var(--ok); font-weight: 600; }
+.node-retrieved { background: #fff8e1; color: #8d6e00; }
+.node-missed { background: #fdecea; color: #b71c1c; }
+.node-list { padding: 2px 0 4px 22px; }
+.onto-rels .rel { display: inline-block; margin-right: 10px; font-size: 11px; }
+.node-via { background: #e0f2f1; color: #00695c; }
