@@ -2207,7 +2207,7 @@ CREATE OR REPLACE AGENT ONTOLOGY_DEMO.AGENTS.GAMING_ROUTER_AGENT
   FROM SPECIFICATION $$
 # Agent specification for ONTOLOGY_DEMO.AGENTS.GAMING_ROUTER_AGENT
 # Front door: routes each question to the domain agent that owns it (agent_router, preview/undocumented).
-# It has no data tools of its own. Deploy (after the four domain agents): ./install.sh --only 03
+# It has no data tools of its own; code_execution (Python sandbox, no data access) post-processes specialist answers. Deploy (after the four domain agents): ./install.sh --only 03
 models:
   orchestration: auto
 
@@ -2234,13 +2234,22 @@ instructions:
     If a question has independent parts that belong to different specialists, call those
     specialists in parallel and combine the answers. If a specialist says the question is outside
     its domain, route it to the specialist that owns the missing data.
+    Use code_execution only for extra calculations, comparisons or charts on numbers the specialists
+    returned (for example a share or a growth rate). It has no data access; never use it to look up data.
 
 tools:
   - tool_spec:
       type: agent_router
       name: agent_router
+  - tool_spec:
+      type: code_execution
+      name: code_execution
 
 tool_resources:
+  code_execution:
+    # SQL callers (DATA_AGENT_RUN from the app and batch eval) can't answer an approval prompt.
+    permission_policy:
+      type: always_allow
   agent_router:
     subagents:
       - name: ONTOLOGY_DEMO.AGENTS.GAMING_CATALOG_AGENT
