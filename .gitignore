@@ -7,3 +7,6 @@ __pycache__/
 # Batch eval output (scripts/batch_eval.py)
 evaluations/results/*
 !evaluations/results/latest.json
+
+# Cortex Code local state (plans, cache)
+.snowflake/
