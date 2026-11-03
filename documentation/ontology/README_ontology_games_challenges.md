@@ -1,13 +1,13 @@
 # The source data: two complex systems
 
-`bash install.sh` (step 02) loads deliberately complex game-business data from the Parquet files in [`../data/`](../data/) into two independent source schemas of `ONTOLOGY_DEMO`. The table definitions are in [`../sql/`](../sql/). The Business Ontology is then built on top in step 04 (see [business_ontology_phases.md](business_ontology_phases.md)).
+`bash install.sh` (step 02) loads deliberately complex game-business data from the Parquet files in [`../data/`](../../data/) into two independent source schemas of `ONTOLOGY_DEMO`. The table definitions are in [`../sql/`](../../sql/). The Business Ontology is then built on top in step 04 (see [business_ontology_phases.md](business_ontology_phases.md)).
 
-The data is **simulated**: real game titles, studios and console histories, with synthetic customers and sales (see [data-generation.md](data-generation.md)). It is intentionally *not* clean:
+The data is **simulated**: real game titles, studios and console histories, with synthetic customers and sales. It is intentionally *not* clean:
 - Tables are overloaded (one table holds many entity types).
 - The same real-world entity is named differently in each system.
 - Keys are imperfect, and code conventions diverge.
 
-That complexity is the whole point. It's what a naive `table = class` mapping gets wrong, and what the ontology layer is built to resolve. The schemas, keys and cross-system joins are described in [database-design.md](database-design.md).
+That complexity is the whole point. It's what a naive `table = class` mapping gets wrong, and what the ontology layer is built to resolve. The schemas, keys and cross-system joins are described in [how-database-is-designed.md](../how-database-is-designed.md).
 
 ## Design rules
 
@@ -16,7 +16,7 @@ That complexity is the whole point. It's what a naive `table = class` mapping ge
 - **Analytic objects use the data as-is.** The views, dynamic tables and procedures read the irregular columns directly; nothing is cleaned up.
 - **Every row stays recoverable.** Every number and name can be reached, the hard way. For example, revenue per catalog game resolves fully through the strong, crosswalk and name + year keys.
 
-A new data generator must keep these rules (see [data-generation.md](data-generation.md)).
+Any change to the data must keep these rules.
 
 ## The two source systems
 

@@ -679,6 +679,5 @@ $business-ontology Associate entities with their source tables and columns
 
 ## Updating the ontology later
 
-- **Regenerating data:** data generation was sunset on 2026-10-26; the data loads from `data/*.parquet`. If the data ever changes, follow [data-generation.md](data-generation.md), then re-run the evaluation SQL and update the evaluation set.
-- **Adding games:** generate new data for the current schemas ([data-generation.md](data-generation.md)), then re-export the Parquet files.
+- **Changing data:** the data is fixed in `data/*.parquet` (no generator). If it ever changes, keep the rules in [README_ontology_games_challenges.md](README_ontology_games_challenges.md), then re-run the batch eval and update the evaluation set.
 - **Play modes:** the Play Mode remodel (overview §7) would add a Play Mode entity and remove MMO, LocalMultiplayer and MultiplayerAvailable from the Genre Rule value list.

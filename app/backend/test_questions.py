@@ -2,7 +2,7 @@ from pathlib import Path
 
 from questions import parse
 
-EVAL = Path(__file__).resolve().parents[2] / "documentation" / "ontology_eval_set.md"
+EVAL = Path(__file__).resolve().parents[2] / "documentation" / "ontology" / "ontology_eval_set.md"
 
 
 def test_parses_all_questions():

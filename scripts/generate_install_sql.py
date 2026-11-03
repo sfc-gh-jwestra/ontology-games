@@ -4,7 +4,7 @@ Generate the install/NN-*.sql files that embed project sources.
 The sources stay the single source of truth; re-run this after editing any of them:
 
   install/02-load-data.sql               data/<SCHEMA>/*.parquet + sql/<SCHEMA>/**.sql
-  install/03-deploy-sv-and-agents.sql    semantic_views/*.yaml + agents/*.yaml + agents/router/*.yaml
+  install/03-deploy-sv-and-agents.sql    semantic_views/*.yaml + agents/*.yaml + agents/cowork_profiles/*.yaml
   install/04a-build-ontology.sql         scripts/build_ontology.py (first install)
   install/04b-refresh-ontology.sql       scripts/build_ontology.py (re-install)
 
@@ -33,22 +33,52 @@ DATA_STAGE = f"{DB}.PUBLIC.DATA_STAGE"
 FILE_FORMAT = f"{DB}.PUBLIC.PARQUET_FF"
 # Object DDL types created after the base tables, in dependency order (see sorted_objects).
 OBJECT_DIRS = ["functions", "procedures", "views", "dynamic_tables"]
-# Agent object metadata that is not part of the agent specification YAML.
-# Create order: the router comes last because it delegates to the others.
+# Agent object metadata that is not part of the agent specification YAML. The router demo's
+# profile (PROFILE_META) is created after these because it delegates to them.
 AGENT_META = {
     "GAMING_BASELINE_AGENT": ("agents", "Baseline: text-to-SQL over SV_GAMING_CROSS_DOMAIN only (no Business Ontology)",
                               "Gaming Baseline Assistant"),
     "GAMING_BON_AGENT": ("agents", "BON agent: native Business Ontology search + text-to-SQL over SV_GAMING_CROSS_DOMAIN",
                          "Gaming BON Assistant"),
-    "GAMING_CATALOG_AGENT": ("agents/router", "Router demo: Game Catalog domain agent over SV_GAME_CATALOG",
+    "GAMING_CATALOG_AGENT": ("agents/cowork_profiles", "Router demo: Game Catalog domain agent over SV_GAME_CATALOG",
                              "Gaming Catalog Agent"),
-    "GAMING_GENRE_AGENT": ("agents/router", "Router demo: Genre Taxonomy domain agent over SV_GENRE_TAXONOMY",
+    "GAMING_GENRE_AGENT": ("agents/cowork_profiles", "Router demo: Genre Taxonomy domain agent over SV_GENRE_TAXONOMY",
                            "Gaming Genre Agent"),
-    "GAMING_SALES_AGENT": ("agents/router", "Router demo: Game Commerce domain agent over SV_GAME_COMMERCE",
+    "GAMING_SALES_AGENT": ("agents/cowork_profiles", "Router demo: Game Commerce domain agent over SV_GAME_COMMERCE",
                            "Gaming Sales Agent"),
-    "GAMING_ROUTER_AGENT": ("agents/router", "Router demo: delegates to the catalog, genre, sales and baseline agents (agent_router)",
-                            "Gaming Router Agent"),
 }
+# The router demo's front door is a CoWork profile: an agent with an agent_router tool, created in
+# the CoWork PROFILES schema and attached to the CoWork object (pattern of cowork_profiles_demo).
+PROFILE_SCHEMA = "SNOWFLAKE_INTELLIGENCE.PROFILES"
+COWORK_OBJECT = "SNOWFLAKE_INTELLIGENCE_OBJECT_DEFAULT"
+PROFILE_ROLE = "GAMING_PROFILE_USER"  # sees the profile in CoWork; inherits APP_ROLE's data grants
+PROFILE_META = {
+    "GAMING_PROFILE": ("agents/cowork_profiles", "Router demo: routes games questions to the catalog, genre, sales and cross-domain agents",
+                       "PlayStation Games Analytics"),
+}
+OLD_ROUTER = f"{AGENT_SCHEMA}.GAMING_ROUTER_AGENT"  # replaced by the profile; dropped by step 03
+# Specialists attached to CoWork next to the profile so each can also be opened by direct link.
+COWORK_AGENTS = ["GAMING_CATALOG_AGENT", "GAMING_GENRE_AGENT", "GAMING_SALES_AGENT", "GAMING_BASELINE_AGENT"]
+
+
+def check_profile(f):
+    """A profile's router subagent list is dropped silently if any entry misses a field."""
+    spec = yaml.safe_load(f.read_text())
+    routers = [t["tool_spec"]["name"] for t in spec.get("tools", []) if t["tool_spec"]["type"] == "agent_router"]
+    if len(routers) != 1:
+        raise ValueError(f"{f.name}: a profile needs exactly one agent_router tool")
+    subagents = (spec.get("tool_resources", {}).get(routers[0]) or {}).get("subagents")
+    if not subagents:
+        raise ValueError(f"{f.name}: tool_resources.{routers[0]}.subagents is missing or empty")
+    for s in subagents:
+        missing = {"name", "display_name", "description", "source"} - set(s)
+        if missing:
+            raise ValueError(f"{f.name}: subagent {s.get('name')} is missing {sorted(missing)}")
+
+
+def cowork_call(stmt):
+    """Run an attach/detach statement and ignore the error when it is already in that state."""
+    return f"EXECUTE IMMEDIATE $$BEGIN {stmt}; EXCEPTION WHEN OTHER THEN RETURN 'skipped'; END;$$;\n"
 
 
 def load_module(name):
@@ -166,7 +196,7 @@ def semantic_views():
 
 
 def gen_03():
-    parts = [header("03-deploy-sv-and-agents", "semantic_views/*.yaml, agents/*.yaml and agents/router/*.yaml"),
+    parts = [header("03-deploy-sv-and-agents", "semantic_views/*.yaml, agents/*.yaml and agents/cowork_profiles/*.yaml"),
              "-- Each semantic view lives in the schema of its data; SV_GAMING_CROSS_DOMAIN (imports the other three)\n"
              f"-- lives in GAME_CATALOG. All agents live in {AGENT_SCHEMA}. Grants for the app role: app/sql/01_app_role.sql.\n\n",
              f"CREATE SCHEMA IF NOT EXISTS {AGENT_SCHEMA};\n\n"]
@@ -177,9 +207,10 @@ def gen_03():
     for schema, name, f, text in svs:
         parts.append(f"-- {f.name} -> {schema}.{name}\n"
                      f"CALL SYSTEM$CREATE_SEMANTIC_VIEW_FROM_YAML('{schema}', {dollar(chr(10) + text + chr(10), f.name)});\n\n")
-    found = {f.stem for d in ("agents", "agents/router") for f in (ROOT / d).glob("*.yaml")}
-    if found != set(AGENT_META):
-        raise ValueError(f"agent YAMLs {sorted(found)} do not match AGENT_META {sorted(AGENT_META)}")
+    found = {f.stem for d in ("agents", "agents/cowork_profiles") for f in (ROOT / d).glob("*.yaml")}
+    if found != set(AGENT_META) | set(PROFILE_META):
+        raise ValueError(f"agent YAMLs {sorted(found)} do not match AGENT_META + PROFILE_META "
+                         f"{sorted(set(AGENT_META) | set(PROFILE_META))}")
     for name, (folder, comment, display) in AGENT_META.items():
         f = ROOT / folder / f"{name}.yaml"
         profile = json.dumps({"display_name": display})
@@ -193,7 +224,50 @@ def gen_03():
                  f"CREATE ROLE IF NOT EXISTS {APP_ROLE};\n")
     parts += [f"GRANT SELECT, REFERENCES ON SEMANTIC VIEW {schema}.{name} TO ROLE {APP_ROLE};\n"
               for schema, name, _, _ in svs]
-    parts.append(f"GRANT USAGE ON ALL AGENTS IN SCHEMA {AGENT_SCHEMA} TO ROLE {APP_ROLE};\n")
+    parts.append(f"GRANT USAGE ON ALL AGENTS IN SCHEMA {AGENT_SCHEMA} TO ROLE {APP_ROLE};\n\n")
+    parts.append(gen_profiles())
+    return "".join(parts)
+
+
+def profile_grants():
+    """Role that sees the profile in CoWork: USAGE on database, schema and profile (all three are
+    needed), plus APP_ROLE for the specialists' data. Also used by app/sql/01_app_role.sql."""
+    db = PROFILE_SCHEMA.split(".")[0]
+    lines = [f"CREATE ROLE IF NOT EXISTS {PROFILE_ROLE}\n"
+             f"  COMMENT = 'Sees the games CoWork profile ({PROFILE_SCHEMA}.GAMING_PROFILE) and its agents.';\n",
+             f"GRANT DATABASE ROLE SNOWFLAKE.CORTEX_USER TO ROLE {PROFILE_ROLE};\n",
+             f"GRANT ROLE {APP_ROLE} TO ROLE {PROFILE_ROLE};\n",
+             f"GRANT USAGE ON DATABASE {db} TO ROLE {PROFILE_ROLE};\n",
+             f"GRANT USAGE ON SCHEMA {PROFILE_SCHEMA} TO ROLE {PROFILE_ROLE};\n"]
+    lines += [f"GRANT USAGE ON AGENT {PROFILE_SCHEMA}.{name} TO ROLE {PROFILE_ROLE};\n" for name in PROFILE_META]
+    return "".join(lines)
+
+
+def gen_profiles():
+    parts = [f"-- CoWork profile (router demo front door). Runs as ACCOUNTADMIN: needs CREATE AGENT on\n"
+             f"-- {PROFILE_SCHEMA} and MODIFY on the CoWork object {COWORK_OBJECT}.\n"
+             f"-- Replaces the old router agent {OLD_ROUTER}.\n",
+             cowork_call(f"ALTER SNOWFLAKE INTELLIGENCE {COWORK_OBJECT} DROP AGENT {OLD_ROUTER}"),
+             f"DROP AGENT IF EXISTS {OLD_ROUTER};\n",
+             f"CREATE SCHEMA IF NOT EXISTS {PROFILE_SCHEMA};\n\n"]
+    for name, (folder, comment, display) in PROFILE_META.items():
+        f = ROOT / folder / f"{name}.yaml"
+        check_profile(f)
+        fqn = f"{PROFILE_SCHEMA}.{name}"
+        parts.append(f"-- {folder}/{f.name}: detach before replacing, attach again below\n"
+                     + cowork_call(f"ALTER SNOWFLAKE INTELLIGENCE {COWORK_OBJECT} DROP AGENT {fqn}")
+                     + f"CREATE OR REPLACE AGENT {fqn}\n"
+                     f"  COMMENT = {sql_str(comment)}\n"
+                     f"  PROFILE = {sql_str(json.dumps({'display_name': display}))}\n"
+                     f"  FROM SPECIFICATION {dollar(chr(10) + f.read_text() + chr(10), f.name)};\n\n")
+    parts.append(f"-- {PROFILE_ROLE}: grant it to a user and make it their DEFAULT_ROLE (CoWork uses the\n"
+                 f"-- default role, not the session role) to see only this profile. See\n"
+                 f"-- documentation/how-to-demo-optional-cowork_profiles.md.\n" + profile_grants() + "\n")
+    parts.append("-- Attach the profile, and the specialists for direct links (no-op if already attached)\n")
+    parts += [cowork_call(f"ALTER SNOWFLAKE INTELLIGENCE {COWORK_OBJECT} ADD AGENT {PROFILE_SCHEMA}.{n}")
+              for n in PROFILE_META]
+    parts += [cowork_call(f"ALTER SNOWFLAKE INTELLIGENCE {COWORK_OBJECT} ADD AGENT {AGENT_SCHEMA}.{n}")
+              for n in COWORK_AGENTS]
     return "".join(parts)
 
 

@@ -34,5 +34,17 @@ GRANT READ ON ONTOLOGY DOMAIN "Genre Taxonomy" TO ROLE ONTOLOGY_APP_ROLE;
 -- Only if this role should also author/approve nodes (repeat per domain):
 -- GRANT MODIFY ON ONTOLOGY DOMAIN "Game Catalog" TO ROLE ONTOLOGY_APP_ROLE;
 
+-- Router demo CoWork profile (created in install/03). GAMING_PROFILE_USER inherits the data grants
+-- above and adds USAGE on the profile at all three levels (database, schema, agent).
+-- scripts/agent_routing_check.sql runs as this role. Granting it does not change your CoWork view:
+-- CoWork uses your DEFAULT_ROLE (see documentation/how-to-demo-optional-cowork_profiles.md).
+CREATE ROLE IF NOT EXISTS GAMING_PROFILE_USER;
+GRANT DATABASE ROLE SNOWFLAKE.CORTEX_USER TO ROLE GAMING_PROFILE_USER;
+GRANT ROLE ONTOLOGY_APP_ROLE TO ROLE GAMING_PROFILE_USER;
+GRANT USAGE ON DATABASE SNOWFLAKE_INTELLIGENCE TO ROLE GAMING_PROFILE_USER;
+GRANT USAGE ON SCHEMA SNOWFLAKE_INTELLIGENCE.PROFILES TO ROLE GAMING_PROFILE_USER;
+GRANT USAGE ON AGENT SNOWFLAKE_INTELLIGENCE.PROFILES.GAMING_PROFILE TO ROLE GAMING_PROFILE_USER;
+GRANT ROLE GAMING_PROFILE_USER TO USER IDENTIFIER($INSTALL_USER);
+
 -- Check: the role can see both agents and the semantic views.
 SHOW GRANTS TO ROLE ONTOLOGY_APP_ROLE;

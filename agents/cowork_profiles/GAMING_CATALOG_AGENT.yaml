@@ -1,12 +1,12 @@
 # Agent specification for ONTOLOGY_DEMO.AGENTS.GAMING_CATALOG_AGENT
-# Game Catalog domain: text-to-SQL over SV_GAME_CATALOG only. Routed to by GAMING_ROUTER_AGENT.
+# Game Catalog domain: text-to-SQL over SV_GAME_CATALOG only. Routed to by the CoWork profile SNOWFLAKE_INTELLIGENCE.PROFILES.GAMING_PROFILE.
 # Deploy: ./install.sh --only 03
 models:
   orchestration: auto
 
 orchestration:
   budget:
-    seconds: 60
+    seconds: 300
     tokens: 16000
 
 instructions:

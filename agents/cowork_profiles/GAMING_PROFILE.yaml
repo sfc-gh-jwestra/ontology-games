@@ -1,6 +1,9 @@
-# Agent specification for ONTOLOGY_DEMO.AGENTS.GAMING_ROUTER_AGENT
-# Front door: routes each question to the domain agent that owns it (agent_router, preview/undocumented).
-# It has no data tools of its own; code_execution (Python sandbox, no data access) post-processes specialist answers. Deploy (after the four domain agents): ./install.sh --only 03
+# CoWork profile SNOWFLAKE_INTELLIGENCE.PROFILES.GAMING_PROFILE
+# A profile is an agent with an agent_router tool attached to the CoWork object. It routes each question
+# to the domain agent that owns it. Every subagent entry needs all 4 fields (name, display_name,
+# description, source): missing one silently drops the whole list. The tool_resources key must match
+# the router tool name. It has no data tools of its own; code_execution (Python sandbox, no data access)
+# post-processes specialist answers. Deploy (after the four domain agents): ./install.sh --only 03
 models:
   orchestration: auto
 
@@ -8,6 +11,8 @@ orchestration:
   budget:
     seconds: 300
     tokens: 32000
+  # Skip (with warning 399569) a subagent the caller's role can't use instead of failing the run.
+  tool_not_accessible: accept
 
 instructions:
   response: |
@@ -15,25 +20,36 @@ instructions:
     Give the specialist's answer with the number first, then a short explanation, and say which
     specialist(s) answered. When you called several specialists, combine their answers into one reply.
   orchestration: |
-    Always answer data questions by routing to a specialist with agent_router. Never answer a
-    data question yourself and never invent numbers.
-    Routing rules:
+    SCOPE: You answer questions about PlayStation games data: the game catalog, genres, and sales
+    (revenue, customers, products). Always answer data questions by routing to a specialist with
+    router. Never answer a data question yourself and never invent numbers.
+    REFUSAL: If the question is outside games data (general knowledge, personal advice, coding help),
+    decline and explain you are a games analytics assistant.
+    ROUTING:
     - Catalog agent: catalog games, developers, publishers, franchises, release dates, lifecycle status.
     - Genre agent: genre membership, game counts by genre, parent genres and subgenres.
     - Sales agent: revenue (digital, hardware, subscription), customers, regions, products, SKUs,
       revenue types, exclusivity, when no catalog attribute or genre is needed.
     - Cross-domain agent: any question that combines revenue, sales or customers with a developer,
       publisher, franchise, genre or catalog game (for example revenue by developer or by genre).
-    If a question has independent parts that belong to different specialists, call those
+    MULTI-AGENT: If a question has independent parts that belong to different specialists, call those
     specialists in parallel and combine the answers. If a specialist says the question is outside
     its domain, route it to the specialist that owns the missing data.
+    CLARIFICATION: If it is unclear which domain a question belongs to, ask one clarifying question.
     Use code_execution only for extra calculations, comparisons or charts on numbers the specialists
     returned (for example a share or a growth rate). It has no data access; never use it to look up data.
+  # Shown as starter questions in CoWork; same as tests 1-5 in scripts/agent_routing_check.sql.
+  sample_questions:
+    - question: "How many games has Santa Monica Studio developed?"
+    - question: "How many RPG games are there?"
+    - question: "What was hardware revenue in North America?"
+    - question: "Which developer earned the most revenue?"
+    - question: "How many Horror games are there, and what was total subscription revenue?"
 
 tools:
   - tool_spec:
       type: agent_router
-      name: agent_router
+      name: router
   - tool_spec:
       type: code_execution
       name: code_execution
@@ -43,7 +59,7 @@ tool_resources:
     # SQL callers (DATA_AGENT_RUN from the app and batch eval) can't answer an approval prompt.
     permission_policy:
       type: always_allow
-  agent_router:
+  router:
     subagents:
       - name: ONTOLOGY_DEMO.AGENTS.GAMING_CATALOG_AGENT
         display_name: Catalog agent

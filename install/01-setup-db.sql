@@ -9,7 +9,7 @@ CREATE SCHEMA IF NOT EXISTS ONTOLOGY_DEMO.GAME_SALES;
 CREATE SCHEMA IF NOT EXISTS ONTOLOGY_DEMO.AGENTS
   COMMENT = 'Cortex Agents for the ontology demo (semantic views live with their data)';
 
--- Data comes from data/*.parquet; nothing is generated (see documentation/data-generation.md).
+-- Data comes from data/*.parquet; nothing is generated.
 -- The old synthetic-sales generator workspace is retired.
 DROP SCHEMA IF EXISTS ONTOLOGY_DEMO.GAME_SALES_GEN;
 

@@ -1,4 +1,4 @@
-"""Batch eval: run every question in documentation/ontology_eval_set.md through both agents and grade the answers.
+"""Batch eval: run every question in documentation/ontology/ontology_eval_set.md through both agents and grade the answers.
 
 For each question and agent it records the answer, every tool call in order (name, type, status), the SQL
 executed, token usage and elapsed time. An AI_COMPLETE judge then scores each answer on the same 0 / 0.33 / 0.67 / 1
@@ -23,7 +23,7 @@ import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-EVAL_MD = ROOT / "documentation" / "ontology_eval_set.md"
+EVAL_MD = ROOT / "documentation" / "ontology" / "ontology_eval_set.md"
 OUT = ROOT / "evaluations" / "results"
 AGENTS = {"baseline": "ONTOLOGY_DEMO.AGENTS.GAMING_BASELINE_AGENT", "ontology": "ONTOLOGY_DEMO.AGENTS.GAMING_BON_AGENT"}
 BACKEND = ROOT / "app" / "backend"

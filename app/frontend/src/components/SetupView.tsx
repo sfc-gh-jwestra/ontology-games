@@ -130,7 +130,7 @@ export default function SetupView() {
               </div>
             );
           })}
-          <div className="muted small">Details: documentation/README_ontology_games_challenges.md</div>
+          <div className="muted small">Details: documentation/ontology/README_ontology_games_challenges.md</div>
         </div>
       </section>
 

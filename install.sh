@@ -13,7 +13,7 @@
 #   --only NN   run just step NN
 # Connection: SNOWFLAKE_CONNECTION_NAME (default ONTOLOGY_DEMO_CONN in ~/.snowflake/connections.toml).
 # Progress is kept in .install_state; delete it to start over.
-# No data is generated: everything loads from data/*.parquet (see documentation/data-generation.md).
+# No data is generated: everything loads from data/*.parquet.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"

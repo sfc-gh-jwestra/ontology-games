@@ -6,7 +6,7 @@ from pathlib import Path
 import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
-CHALLENGES_MD = ROOT / "documentation" / "README_ontology_games_challenges.md"
+CHALLENGES_MD = ROOT / "documentation" / "ontology" / "README_ontology_games_challenges.md"
 
 
 def _load_ontology():
@@ -33,14 +33,17 @@ def _semantic_views():
 
 def _agents():
     out = []
-    for folder, group in (("agents", "demo"), ("agents/router", "router (optional)")):
+    for folder, group in (("agents", "demo"), ("agents/cowork_profiles", "router (optional)")):
         for f in sorted((ROOT / folder).glob("*.yaml")):
             text = f.read_text()
             spec = yaml.safe_load(text)
             tools = [t["tool_spec"]["name"] + " (" + t["tool_spec"]["type"] + ")" for t in spec.get("tools", [])]
             sv = [r["semantic_view"] for r in (spec.get("tool_resources") or {}).values()
                   if isinstance(r, dict) and r.get("semantic_view")]
-            out.append({"name": f.stem, "fqn": f"ONTOLOGY_DEMO.AGENTS.{f.stem}", "group": group,
+            # The router demo's front door is a CoWork profile (an agent with an agent_router tool).
+            is_profile = any(t["tool_spec"]["type"] == "agent_router" for t in spec.get("tools", []))
+            schema = "SNOWFLAKE_INTELLIGENCE.PROFILES" if is_profile else "ONTOLOGY_DEMO.AGENTS"
+            out.append({"name": f.stem, "fqn": f"{schema}.{f.stem}", "group": group,
                         "file": f"{folder}/{f.name}", "tools": tools, "semantic_views": sv, "yaml": text})
     return out
 

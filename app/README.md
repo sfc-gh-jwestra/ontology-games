@@ -2,7 +2,7 @@
 
 A React + FastAPI app that runs on your machine. It compares `GAMING_BASELINE_AGENT` (semantic view
 only) with `GAMING_BON_AGENT` (the same semantic view plus Business Ontology search) on the questions in
-`documentation/ontology_eval_set.md`. There is no app login. The layout follows the
+`documentation/ontology/ontology_eval_set.md`. There is no app login. The layout follows the
 `game_analytics_demo` app, with three tabs:
 
 - **Setup:** how the comparison works, the four semantic views, the three ontology domains, the seven
@@ -42,7 +42,7 @@ uvicorn automatically.
   the ontology relationships between them (from `scripts/build_ontology.py`). Each ontology search step
   lists the nodes it returned, with the applied ones highlighted. Live gets it with the verdict;
   Recorded and Analysis read it from `latest.json` (older runs show "not recorded").
-- **Questions:** parsed from `documentation/ontology_eval_set.md` when the backend starts. Edits to that
+- **Questions:** parsed from `documentation/ontology/ontology_eval_set.md` when the backend starts. Edits to that
   file trigger a reload.
 
 ## Layout

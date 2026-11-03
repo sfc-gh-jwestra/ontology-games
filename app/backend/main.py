@@ -3,7 +3,7 @@
 Recorded mode, Setup and Analysis read repo files only. Live mode runs both agents with
 DATA_AGENT_RUN over one named connection (sf.py), opened on the first Live call.
 
-GET  /api/questions      eval set questions (documentation/ontology_eval_set.md)
+GET  /api/questions      eval set questions (documentation/ontology/ontology_eval_set.md)
 GET  /api/recorded       latest batch eval (evaluations/results/latest.json, from scripts/batch_eval.py)
 GET  /api/setup          agents, semantic views, ontology and challenges, from repo files
 GET  /api/live-status    whether the Live connection is open yet
@@ -30,7 +30,7 @@ import sf
 
 HERE = Path(__file__).parent
 # Read the eval set straight from the repo, so edits show up after a backend reload.
-EVAL_MD = Path(os.getenv("EVAL_MD", HERE.parents[1] / "documentation" / "ontology_eval_set.md"))
+EVAL_MD = Path(os.getenv("EVAL_MD", HERE.parents[1] / "documentation" / "ontology" / "ontology_eval_set.md"))
 QUESTIONS = eval_questions.parse(EVAL_MD.read_text())
 BY_ID = {q["id"]: q for q in QUESTIONS}
 STATIC = Path(os.getenv("STATIC_DIR", HERE / "static"))

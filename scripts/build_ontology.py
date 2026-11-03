@@ -1,6 +1,6 @@
 """Business Ontology content for ONTOLOGY_DEMO, and the SQL that builds or refreshes it.
 
-Source of truth for the content: documentation/business_ontology_phases.md (decision log D1-D17).
+Source of truth for the content: documentation/ontology/business_ontology_phases.md (decision log D1-D17).
 Each payload is serialised once with json.dumps and escaped once for the SQL literal,
 as the business-ontology skill requires.
 

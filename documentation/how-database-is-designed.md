@@ -6,10 +6,10 @@ Everything the demo creates lives in one database, `ONTOLOGY_DEMO`. `install/01-
 |---|---|---|
 | `GAME_CATALOG` | Game attributes: 90 games with developer, publisher and franchise, plus genres, mechanics, modes, engines, platforms, monetization models, age ratings, awards, accessibility, narrative structures, studio acquisitions, game similarity and genre whitespace. 29 base tables, 2 dynamic tables, 7 views, 1 UDF, 3 procedures. Also the semantic views `SV_GAME_CATALOG`, `SV_GENRE_TAXONOMY` and `SV_GAMING_CROSS_DOMAIN`. | `02`, `03` |
 | `GAME_SALES` | Commerce: 90 sales titles, digital products and transactions, hardware sales, subscriptions, customer accounts, and lifetime, monthly and quarterly revenue. 14 base tables, 2 dynamic tables, 3 views. Also the semantic view `SV_GAME_COMMERCE`. | `02`, `03` |
-| `AGENTS` | `GAMING_BASELINE_AGENT` and `GAMING_BON_AGENT` (the with/without Business Ontology pair), plus the router demo: `GAMING_ROUTER_AGENT` over `GAMING_CATALOG_AGENT`, `GAMING_GENRE_AGENT` and `GAMING_SALES_AGENT`. | `03` |
+| `AGENTS` | `GAMING_BASELINE_AGENT` and `GAMING_BON_AGENT` (the with/without Business Ontology pair), plus the router demo specialists routed to by the CoWork profile `SNOWFLAKE_INTELLIGENCE.PROFILES.GAMING_PROFILE`: `GAMING_CATALOG_AGENT`, `GAMING_GENRE_AGENT` and `GAMING_SALES_AGENT`. | `03` |
 | `PUBLIC` | `DATA_STAGE` and `PARQUET_FF` for the data load. | `01` |
 
-The Business Ontology (step `04`) is account-level, not a schema. It defines three domains, **Game Catalog**, **Game Commerce** and **Genre Taxonomy**, whose terms point at columns in the two data schemas (see [business_ontology_phases.md](business_ontology_phases.md)). The `VIDEOWL` schema in the same database is an unrelated reference ontology; the install doesn't create or use it.
+The Business Ontology (step `04`) is account-level, not a schema. It defines three domains, **Game Catalog**, **Game Commerce** and **Genre Taxonomy**, whose terms point at columns in the two data schemas (see [business_ontology_phases.md](ontology/business_ontology_phases.md)). The `VIDEOWL` schema in the same database is an unrelated reference ontology; the install doesn't create or use it.
 
 ## Two domains, built like two separate systems
 
@@ -23,7 +23,7 @@ The data imitates what most companies have: a **catalog** system that describes 
 
 The semantic views follow the same split. `SV_GAME_CATALOG`, `SV_GENRE_TAXONOMY` and `SV_GAME_COMMERCE` each model one domain. `SV_GAMING_CROSS_DOMAIN` imports all three and adds a single cross-system relationship, `TITLES.CATALOG_GAME_ID = GAMES.GAME_ID`. Both demo agents query that view; only the BON agent also searches the Business Ontology. The difference in their answers is what the ontology adds.
 
-The ways the two systems disagree (overloaded tables, renamed entities, imperfect keys, divergent codes, overloaded column names, genre roll-ups) are catalogued in [README_ontology_games_challenges.md](README_ontology_games_challenges.md).
+The ways the two systems disagree (overloaded tables, renamed entities, imperfect keys, divergent codes, overloaded column names, genre roll-ups) are catalogued in [README_ontology_games_challenges.md](ontology/README_ontology_games_challenges.md).
 
 ## Duplicated data
 
@@ -67,7 +67,7 @@ The traps an agent without context falls into:
 - **Dropping unmapped titles.** Two titles (Ghost of Yōtei and Uncharted: Legacy of Thieves Collection, $229,800 together) have no catalog ID and no title code. An inner join loses them. They resolve only by accent-folded name plus release year; otherwise report them as `'Unmapped'` so totals still match `GAME_REVENUE`.
 - **One-to-many attributes.** A game has about three fully matched genres (`MATCH_STATUS = 'FULL'`; `PARTIAL` and `NONE` rows aren't membership), so genre revenue totals overlap and must not be summed or read as shares. Monetization models and awards behave the same way.
 
-These rules are recorded in the Business Ontology as the **Game Identity Match Rule** (strong key, then title-code crosswalk, then name + year), the **Game Revenue** and **Genre Revenue** metrics and the **Genre Roll-up Rule**. That is why only the BON agent applies them consistently. The expected answers are in [ontology_eval_set.md](ontology_eval_set.md).
+These rules are recorded in the Business Ontology as the **Game Identity Match Rule** (strong key, then title-code crosswalk, then name + year), the **Game Revenue** and **Genre Revenue** metrics and the **Genre Roll-up Rule**. That is why only the BON agent applies them consistently. The expected answers are in [ontology_eval_set.md](ontology/ontology_eval_set.md).
 
 ## Derived objects
 
